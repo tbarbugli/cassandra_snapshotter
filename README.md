@@ -11,12 +11,15 @@ How to install
 
 On your worker machine (the machines that runs cassandra_cluster)
 
-`pip install cassandra_snapshotter`
-
+``` bash
+pip install cassandra_snapshotter`
+```
 
 On your cluster nodes:
 
-`pip install s3funnel`
+``` bash
+pip install s3funnel
+```
 
 Make sure you have JNA enabled and (if you want to use them) that incremental backups are enabled in your cassandra config file.
 
@@ -28,7 +31,9 @@ You can see the list of parameters available via `cassandra-snapshotter --help`
 ####Create a new backup for *mycluster*:####
 
 
-`cassandra-snapshotter --aws-access-key-id=X --aws-secret-access-key=Y --s3-bucket-name=Z --s3-base-path=mycluster backup --hosts=h1,h2,h3,h4 --user=cassandra`
+``` bash
+cassandra-snapshotter --aws-access-key-id=X --aws-secret-access-key=Y --s3-bucket-name=Z --s3-base-path=mycluster backup --hosts=h1,h2,h3,h4 --user=cassandra
+```
 
 
 - connects via ssh to hosts h1,h2,h3,h4 using user cassandra
@@ -38,7 +43,9 @@ You can see the list of parameters available via `cassandra-snapshotter --help`
 
 ####List existing backups for *mycluster*:####
 
-`cassandra-snapshotter --aws-access-key-id=X --aws-secret-access-key=Y --s3-bucket-name=Z --s3-base-path=mycluster list`
+``` bash
+cassandra-snapshotter --aws-access-key-id=X --aws-secret-access-key=Y --s3-bucket-name=Z --s3-base-path=mycluster list
+```
 
 ###How it works###
 
@@ -49,11 +56,11 @@ Backups are stored on S3 using this convention:
 
 ####Snapshots:####
 
-	`s3_bucket_name/s3_base_path/snapshot_creation_time/hostname/cassandra/data/path/keyspace/table/snapshots`
+	s3_bucket_name/s3_base_path/snapshot_creation_time/hostname/cassandra/data/path/keyspace/table/snapshots
 
 ####Incremental Backups:####
 
-	`s3_bucket_name/s3_base_path/snapshot_creation_time/hostname/cassandra/data/path/keyspace/table/backups`
+	s3_bucket_name/s3_base_path/snapshot_creation_time/hostname/cassandra/data/path/keyspace/table/backups
 
 ###S3_BASE_PATH###
 
