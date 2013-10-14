@@ -56,11 +56,11 @@ Backups are stored on S3 using this convention:
 
 ####Snapshots:####
 
-	s3_bucket_name/s3_base_path/snapshot_creation_time/hostname/cassandra/data/path/keyspace/table/snapshots
+	/s3_base_path/snapshot_creation_time/hostname/cassandra/data/path/keyspace/table/snapshots
 
 ####Incremental Backups:####
 
-	s3_bucket_name/s3_base_path/snapshot_creation_time/hostname/cassandra/data/path/keyspace/table/backups
+	/s3_base_path/snapshot_creation_time/hostname/cassandra/data/path/keyspace/table/backups
 
 ###S3_BASE_PATH###
 
