@@ -6,7 +6,6 @@ from fabric.api import execute
 from fabric.api import hide
 from fabric.api import sudo
 from fabric.context_managers import settings
-from fabric_pushy import remote_import
 import json
 import logging
 import time
@@ -223,9 +222,6 @@ class BackupWorker(object):
             self.upload_backups_to_s3(snapshot, files)
 
     def get_node_backup_files(self, snapshot, incremental_backups):
-        glob = remote_import("glob")
-        r_os = remote_import("os")
-
         if snapshot.keyspaces:
             keyspace_globs = snapshot.keyspaces.split()
         else:
@@ -248,9 +244,15 @@ class BackupWorker(object):
             else:
                 path += ['snapshots', snapshot.name]
             path += ['*']
-            path = r_os.path.join(*path)
-            logging.info('list files to backup matching %s path' % path)
-            files.extend(glob.glob(path))
+
+            with hide('output'):
+                path = self.executer.sudo('python -c "import os; print os.path.join(*%s)"' % path)
+
+            logging.info('list files to backup matching %s path', path)
+            with hide('output'):
+                files.extend([f.strip() for f in self.executer.sudo("ls %s" % path).split("\n")])
+            logging.info("found %d files", len(files))
+
         return files
 
     def clear_cluster_snapshot(self, snapshot):
