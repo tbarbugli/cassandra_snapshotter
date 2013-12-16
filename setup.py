@@ -6,8 +6,7 @@ from cassandra_snapshotter import __version__, __maintainer__, __email__
 
 install_requires = [
     'argparse',
-    'fabric',
-    'pushy'
+    'fabric'
 ]
 
 setup(
