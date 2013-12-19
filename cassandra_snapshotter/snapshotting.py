@@ -246,11 +246,11 @@ class BackupWorker(object):
             path += ['*']
 
             with hide('output'):
-                path = self.executer.sudo('python -c "import os; print os.path.join(*%s)"' % path)
+                path = sudo('python -c "import os; print os.path.join(*%s)"' % path)
 
             logging.info('list files to backup matching %s path', path)
             with hide('output'):
-                files.extend([f.strip() for f in self.executer.sudo("ls %s" % path).split("\n")])
+                files.extend([f.strip() for f in sudo("ls %s" % path).split("\n")])
             logging.info("found %d files", len(files))
 
         return files
