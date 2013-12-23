@@ -250,7 +250,8 @@ class BackupWorker(object):
 
             logging.info('list files to backup matching %s path', path)
             with hide('output'):
-                files.extend([f.strip() for f in sudo("ls %s" % path).split("\n")])
+                glob_results = sudo("python -c \"import glob; print '\\n'.join(glob.glob('%s'))\"" % path)
+                files.extend([f.strip() for f in glob_results.split("\n")])
             logging.info("found %d files", len(files))
 
         return files
