@@ -4,10 +4,13 @@ from datetime import datetime
 from fabric.api import env
 from fabric.api import execute
 from fabric.api import hide
+from fabric.api import put
 from fabric.api import sudo
 from fabric.context_managers import settings
 import json
 import logging
+import os
+from tempfile import NamedTemporaryFile
 import time
 
 
@@ -118,16 +121,30 @@ class BackupWorker(object):
     def get_current_node_hostname(self):
         return env.host_string
 
+    def get_remote_tmp_folder(self):
+        return '/tmp/'
+
+    def create_s3funnel_manifest(self, files):
+        manifest = NamedTemporaryFile(delete=False)
+        manifest.write('\n'.join("'%s'" % f for f in files))
+        manifest.close()
+        return manifest
+
     def upload_backups_to_s3(self, snapshot, files):
         prefix = '/'.join(snapshot.base_path.split(
             '/') + [self.get_current_node_hostname()])
-        upload_command = "s3funnel %(bucket)s PUT --put-full-path --threads 4 --add-prefix %(prefix)s --aws_key=%(key)s --aws_secret=%(secret)s %(files)s -v"
+        manifest = self.create_s3funnel_manifest(self, files)
+        manifest_path = self.get_remote_tmp_folder() + manifest.name.split(os.path.sep)[-1]
+        put(manifest.name, manifest_path)
+        os.unlink(manifest.name)
+
+        upload_command = "s3funnel %(bucket)s PUT --put-full-path --threads 4 --add-prefix %(prefix)s --aws_key=%(key)s --aws_secret=%(secret)s --input=%(manifest)s -v"
         cmd = upload_command % dict(
             bucket=snapshot.s3_bucket,
             prefix=prefix,
             key=self.aws_access_key_id,
             secret=self.aws_secret_access_key,
-            files=' '.join("'%s'" % f for f in files)
+            manifest=manifest_path
         )
         sudo(cmd)
 
