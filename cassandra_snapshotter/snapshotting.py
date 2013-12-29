@@ -121,13 +121,13 @@ class BackupWorker(object):
     def upload_backups_to_s3(self, snapshot, files):
         prefix = '/'.join(snapshot.base_path.split(
             '/') + [self.get_current_node_hostname()])
-        upload_command = 's3funnel %(bucket)s PUT --put-full-path --threads 4 --add-prefix %(prefix)s --aws_key=%(key)s --aws_secret=%(secret)s %(files)s -v'
+        upload_command = "s3funnel %(bucket)s PUT --put-full-path --threads 4 --add-prefix %(prefix)s --aws_key=%(key)s --aws_secret=%(secret)s %(files)s -v"
         cmd = upload_command % dict(
             bucket=snapshot.s3_bucket,
             prefix=prefix,
             key=self.aws_access_key_id,
             secret=self.aws_secret_access_key,
-            files=' '.join(files)
+            files=' '.join("'%s'" % f for f in files)
         )
         sudo(cmd)
 
