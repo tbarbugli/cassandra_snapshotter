@@ -147,6 +147,7 @@ class BackupWorker(object):
             manifest=manifest_path
         )
         sudo(cmd)
+        sudo("rm %s" % manifest_path)
 
     def snapshot(self, snapshot):
         """
