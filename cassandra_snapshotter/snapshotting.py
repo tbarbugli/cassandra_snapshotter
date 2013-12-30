@@ -133,7 +133,7 @@ class BackupWorker(object):
     def upload_backups_to_s3(self, snapshot, files):
         prefix = '/'.join(snapshot.base_path.split(
             '/') + [self.get_current_node_hostname()])
-        manifest = self.create_s3funnel_manifest(self, files)
+        manifest = self.create_s3funnel_manifest(files)
         manifest_path = self.get_remote_tmp_folder() + manifest.name.split(os.path.sep)[-1]
         put(manifest.name, manifest_path)
         os.unlink(manifest.name)
