@@ -126,7 +126,7 @@ class BackupWorker(object):
 
     def create_s3funnel_manifest(self, files):
         manifest = NamedTemporaryFile(delete=False)
-        manifest.write('\n'.join("'%s'" % f for f in files))
+        manifest.write('\n'.join("%s" % f for f in files))
         manifest.close()
         return manifest
 
