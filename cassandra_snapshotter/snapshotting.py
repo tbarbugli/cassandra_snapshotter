@@ -314,6 +314,9 @@ class SnapshotCollection(object):
         self.aws_secret_access_key = aws_secret_access_key
 
     def _read_s3(self):
+        if self.snapshots:
+            return
+
         conn = S3Connection(self.aws_access_key_id, self.aws_secret_access_key)
         bucket = conn.get_bucket(self.s3_bucket)
         self.snapshots = []
@@ -331,6 +334,14 @@ class SnapshotCollection(object):
                 Snapshot.load_manifest_file(manifest_data, self.s3_bucket))
         self.snapshots = sorted(self.snapshots, reverse=True)
 
+    def get_snapshot_by_name(self, name):
+        snapshots = filter(lambda s: s.name == name, self)
+        return snapshots and snapshots[0]
+
+    def get_latest(self):
+        self._read_s3()
+        return self.snapshots[0]
+
     def get_snapshot_for(self, hosts, keyspaces, table):
         '''
         returns the most recent compatible snapshot
@@ -345,6 +356,5 @@ class SnapshotCollection(object):
             return snapshot
 
     def __iter__(self):
-        if self.snapshots is None:
-            self._read_s3()
+        self._read_s3()
         return iter(self.snapshots)
