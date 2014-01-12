@@ -94,9 +94,9 @@ class BackupWorker(object):
 
     Backup process is split in this steps:
         - requesting cassandra to create new backups
-        - uploadint backup files to S3
+        - uploading backup files to S3
         - clearing backup files from nodes
-        - updating backup meta informations
+        - updating backup meta information
 
     When performing a new snapshot the manifest of the snapshot is
     uploaded to S3 for later use.
