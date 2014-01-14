@@ -2,7 +2,7 @@ import argparse
 from collections import defaultdict
 from fabric.api import env
 import logging
-from snapshotting import BackupWorker
+from snapshotting import BackupWorker, RestoreWorker
 from snapshotting import Snapshot
 from snapshotting import SnapshotCollection
 
@@ -68,6 +68,28 @@ def list_backups(args):
             print '\t %r hosts:%r keyspaces:%r table:%r' % (snapshot, snapshot.hosts, snapshot.keyspaces, snapshot.table)
         print '------------------------' + '-' * len(path)
 
+
+def restore_backup(args):
+    snapshots = SnapshotCollection(
+        args.aws_access_key_id,
+        args.aws_secret_access_key,
+        args.s3_base_path,
+        args.s3_bucket_name
+    )
+
+    if args.backup_name == 'LATEST':
+        snapshot = snapshots.get_latest()
+    else:
+        snapshot = snapshots.get_snapshot_by_name(args.backup_name)
+
+
+    worker = RestoreWorker(aws_access_key_id=args.aws_access_key_id,
+                           aws_secret_access_key=args.aws_secret_access_key,
+                           snapshot=snapshot)
+
+    worker.restore(args.keyspace, args.table)
+
+
 def main():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -129,6 +151,22 @@ def main():
                                action='store_true',
                                help='create a new snapshot')
 
+    # restore snapshot arguments
+    restore_parser = subparsers.add_parser('restore', help='restores a snapshot')
+    restore_parser.add_argument('--backup-name',
+                                default='LATEST',
+                                help='The name (date/time) of the backup to restore')
+    restore_parser.add_argument('--hosts',
+                                required=True,
+                                help="The comma separated list of hosts to restore into")
+    restore_parser.add_argument('--keyspace',
+                                required=True,
+                                help='The keyspace to restore')
+    restore_parser.add_argument('--table',
+                                default='',
+                                help='The table (column family) to restore; leave blank for all')
+
+
     args = parser.parse_args()
     subcommand = args.subcommand
 
@@ -139,6 +177,8 @@ def main():
         run_backup(args)
     elif subcommand == 'list':
         list_backups(args)
+    elif subcommand == 'restore':
+        restore_backup(args)
 
 if __name__ == '__main__':
     main()

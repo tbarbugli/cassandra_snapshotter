@@ -1,3 +1,4 @@
+import re
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 from datetime import datetime
@@ -7,11 +8,13 @@ from fabric.api import hide
 from fabric.api import put
 from fabric.api import sudo
 from fabric.context_managers import settings
+from boto.s3.connection import S3Connection
 import json
 import logging
 import os
 from tempfile import NamedTemporaryFile
 import time
+import sys
 
 
 class Snapshot(object):
@@ -86,6 +89,65 @@ class Snapshot(object):
         return self.name
 
     __str__ = __repr__
+
+
+class RestoreWorker(object):
+    def __init__(self, aws_access_key_id, aws_secret_access_key, snapshot):
+        self.aws_secret_access_key = aws_secret_access_key
+        self.aws_access_key_id = aws_access_key_id
+        self.s3connection = S3Connection(aws_access_key_id=self.aws_access_key_id,
+                                         aws_secret_access_key=self.aws_secret_access_key)
+        self.snapshot = snapshot
+
+    def restore(self, keyspace, table):
+
+        bucket = self.s3connection.get_bucket(self.snapshot.s3_bucket)
+
+        if not table:
+            table = ".*?"
+
+        matcher = re.compile("/(%(keyspace)s)/(%(table)s)/" % dict(keyspace=keyspace, table=table))
+
+        # delete keyspace folder
+
+        keys = []
+
+        for k in bucket.list(self.snapshot.base_path):
+            r = matcher.search(k.name)
+            if not r:
+                continue
+
+            keys.append(k)
+
+        total_size = reduce(lambda s, k: s + k.size, keys, 0)
+
+        print "Total keys: %d" % len(keys)
+        print "Total bytes: %d" % total_size
+
+        progress_string = ""
+
+        read_bytes = 0
+
+        for k in keys:
+            r = matcher.search(k.name)
+            path = './%s/%s' % (keyspace, r.group(2))
+            if not os.path.exists(path):
+                os.makedirs(path)
+
+            filename = './%s/%s/%s_%s' % (keyspace, r.group(2), k.name.split('/')[2], k.name.split('/')[-1])
+            k.get_contents_to_filename(filename)
+
+            old_width = len(progress_string)
+            read_bytes += k.size
+            progress_string = "%d / %d bytes (%.2f%%)" % (read_bytes, total_size, (read_bytes/float(total_size))*100.0)
+            width = len(progress_string)
+            padding = ""
+            if width < old_width:
+                padding = " "*(width-old_width)
+            progress_string = "%s%s\r" % (progress_string, padding)
+
+            sys.stderr.write(progress_string)
+        # run sstableloader
 
 
 class BackupWorker(object):
