@@ -134,9 +134,9 @@ class RestoreWorker(object):
 
         total_size = reduce(lambda s, k: s + k.size, keys, 0)
 
-        logging.info("Found %(files_count)d files, with total size of %(size)d." % dict(
+        logging.info("Found %(files_count)d files, with total size of %(size)s." % dict(
             files_count=len(keys),
-            size=total_size))
+            size=self._human_size(total_size)))
 
         self._download_keys(keys, total_size)
 
@@ -166,7 +166,9 @@ class RestoreWorker(object):
         for size in thread_pool.imap(self._download_key, keys):
             old_width = len(progress_string)
             read_bytes += size
-            progress_string = "%d / %d bytes (%.2f%%)" % (read_bytes, total_size, (read_bytes/float(total_size))*100.0)
+            progress_string = "%s / %s (%.2f%%)" % (self._human_size(read_bytes),
+                                                    self._human_size(total_size),
+                                                    (read_bytes/float(total_size))*100.0)
             width = len(progress_string)
             padding = ""
             if width < old_width:
@@ -181,6 +183,13 @@ class RestoreWorker(object):
         key.get_contents_to_filename(filename)
 
         return key.size
+
+    def _human_size(self, size):
+        for x in ['bytes', 'KB', 'MB', 'GB']:
+            if size < 1024.0:
+                return "%3.1f%s" % (size, x)
+            size /= 1024.0
+        return "%3.1f%s" % (size, 'TB')
 
     def _run_sstableloader(self, keyspace, tables, target_hosts):
         # TODO: get path to sstableloader
