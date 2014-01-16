@@ -183,9 +183,13 @@ class RestoreWorker(object):
         return key.size
 
     def _run_sstableloader(self, keyspace, tables, target_hosts):
-        
-        pass
+        # TODO: get path to sstableloader
+        for table in tables:
+            command = 'sstableloader --nodes %(hosts)s -v %(keyspace)s/%(table)s' % dict(
+                hosts=target_hosts, keyspace=keyspace, table=table)
+            logging.info("invoking: %s", command)
 
+            os.system(command)
 
 class BackupWorker(object):
     """
