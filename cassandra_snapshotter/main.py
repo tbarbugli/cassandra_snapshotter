@@ -77,17 +77,23 @@ def restore_backup(args):
         args.s3_bucket_name
     )
 
-    if args.backup_name == 'LATEST':
+    if args.snapshot_name == 'LATEST':
         snapshot = snapshots.get_latest()
     else:
         snapshot = snapshots.get_snapshot_by_name(args.backup_name)
-
 
     worker = RestoreWorker(aws_access_key_id=args.aws_access_key_id,
                            aws_secret_access_key=args.aws_secret_access_key,
                            snapshot=snapshot)
 
-    worker.restore(args.keyspace, args.table)
+    if args.hosts:
+        hosts = args.hosts.split(',')
+    else:
+        hosts = snapshot.hosts
+
+    target_hosts = args.target_hosts.split(',')
+
+    worker.restore(args.keyspace, args.table, hosts, target_hosts)
 
 
 def main():
@@ -153,19 +159,21 @@ def main():
 
     # restore snapshot arguments
     restore_parser = subparsers.add_parser('restore', help='restores a snapshot')
-    restore_parser.add_argument('--backup-name',
+    restore_parser.add_argument('--snapshot-name',
                                 default='LATEST',
-                                help='The name (date/time) of the backup to restore')
-    restore_parser.add_argument('--hosts',
-                                required=True,
-                                help="The comma separated list of hosts to restore into")
+                                help='The name (date/time) of the snapshot (and incrementals) to restore')
     restore_parser.add_argument('--keyspace',
                                 required=True,
                                 help='The keyspace to restore')
     restore_parser.add_argument('--table',
                                 default='',
                                 help='The table (column family) to restore; leave blank for all')
-
+    restore_parser.add_argument('--hosts',
+                                default='',
+                                help='Comma separated list of hosts to restore from; leave empty for all')
+    restore_parser.add_argument('--target-hosts',
+                                required=True,
+                                help="The comma separated list of hosts to restore into")
 
     args = parser.parse_args()
     subcommand = args.subcommand
