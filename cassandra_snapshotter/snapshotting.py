@@ -186,7 +186,7 @@ class RestoreWorker(object):
         # TODO: get path to sstableloader
         for table in tables:
             command = 'sstableloader --nodes %(hosts)s -v %(keyspace)s/%(table)s' % dict(
-                hosts=target_hosts, keyspace=keyspace, table=table)
+                hosts=','.join(target_hosts), keyspace=keyspace, table=table)
             logging.info("invoking: %s", command)
 
             os.system(command)
