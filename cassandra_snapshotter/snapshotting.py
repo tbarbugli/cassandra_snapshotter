@@ -1,4 +1,5 @@
 import re
+import shutil
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 from datetime import datetime
@@ -8,7 +9,7 @@ from fabric.api import hide
 from fabric.api import put
 from fabric.api import sudo
 from fabric.context_managers import settings
-from boto.s3.connection import S3Connection
+from multiprocessing.dummy import Pool
 import json
 import logging
 import os
@@ -98,47 +99,73 @@ class RestoreWorker(object):
         self.s3connection = S3Connection(aws_access_key_id=self.aws_access_key_id,
                                          aws_secret_access_key=self.aws_secret_access_key)
         self.snapshot = snapshot
+        self.keyspace_table_matcher = None
 
-    def restore(self, keyspace, table):
+    def restore(self, keyspace, table, hosts, target_hosts):
+        # TODO:
+        # 4. sstableloader
 
-        bucket = self.s3connection.get_bucket(self.snapshot.s3_bucket)
+        logging.info("Restoring keyspace=%(keyspace)s, table=%(table)s" % dict(keyspace=keyspace,
+                                                                               table=table))
 
+        logging.info("From hosts: %(hosts)s to: %(target_hosts)s" % dict(hosts=', '.join(hosts),
+                                                                         target_hosts=', '.join(
+                                                                             target_hosts)))
         if not table:
             table = ".*?"
 
-        matcher = re.compile("/(%(keyspace)s)/(%(table)s)/" % dict(keyspace=keyspace, table=table))
+        bucket = self.s3connection.get_bucket(self.snapshot.s3_bucket)
 
-        # delete keyspace folder
+        matcher_string = "(%(hosts)s).*/(%(keyspace)s)/(%(table)s)" % dict(hosts='|'.join(hosts), keyspace=keyspace, table=table)
+        self.keyspace_table_matcher = re.compile(matcher_string)
 
         keys = []
+        tables = set()
 
         for k in bucket.list(self.snapshot.base_path):
-            r = matcher.search(k.name)
+            r = self.keyspace_table_matcher.search(k.name)
             if not r:
                 continue
 
+            tables.add(r.group(3))
             keys.append(k)
+
+        self._delete_old_dir_and_create_new(keyspace, tables)
 
         total_size = reduce(lambda s, k: s + k.size, keys, 0)
 
-        print "Total keys: %d" % len(keys)
-        print "Total bytes: %d" % total_size
+        logging.info("Found %(files_count)d files, with total size of %(size)d." % dict(
+            files_count=len(keys),
+            size=total_size))
 
-        progress_string = ""
+        self._download_keys(keys, total_size)
 
-        read_bytes = 0
+        logging.info("Finished downloading...")
 
-        for k in keys:
-            r = matcher.search(k.name)
-            path = './%s/%s' % (keyspace, r.group(2))
+        self._run_sstableloader(keyspace, tables, target_hosts)
+
+    def _delete_old_dir_and_create_new(self, keyspace, tables):
+        keyspace_path = './%s' % keyspace
+        if os.path.exists(keyspace_path) and os.path.isdir(keyspace_path):
+            logging.warning("Deleteing directory (%s)..." % keyspace_path)
+            shutil.rmtree(keyspace_path)
+
+        for table in tables:
+            path = './%s/%s' % (keyspace, table)
             if not os.path.exists(path):
                 os.makedirs(path)
 
-            filename = './%s/%s/%s_%s' % (keyspace, r.group(2), k.name.split('/')[2], k.name.split('/')[-1])
-            k.get_contents_to_filename(filename)
+    def _download_keys(self, keys, total_size, pool_size=5):
+        logging.info("Starting to download...")
 
+        progress_string = ""
+        read_bytes = 0
+
+        thread_pool = Pool(pool_size)
+
+        for size in thread_pool.imap(self._download_key, keys):
             old_width = len(progress_string)
-            read_bytes += k.size
+            read_bytes += size
             progress_string = "%d / %d bytes (%.2f%%)" % (read_bytes, total_size, (read_bytes/float(total_size))*100.0)
             width = len(progress_string)
             padding = ""
@@ -147,7 +174,17 @@ class RestoreWorker(object):
             progress_string = "%s%s\r" % (progress_string, padding)
 
             sys.stderr.write(progress_string)
-        # run sstableloader
+
+    def _download_key(self, key):
+        r = self.keyspace_table_matcher.search(key.name)
+        filename = './%s/%s/%s_%s' % (r.group(2), r.group(3), key.name.split('/')[2], key.name.split('/')[-1])
+        key.get_contents_to_filename(filename)
+
+        return key.size
+
+    def _run_sstableloader(self, keyspace, tables, target_hosts):
+        
+        pass
 
 
 class BackupWorker(object):
