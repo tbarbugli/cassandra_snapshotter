@@ -1,3 +1,5 @@
+import re
+import shutil
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 from datetime import datetime
@@ -7,11 +9,13 @@ from fabric.api import hide
 from fabric.api import put
 from fabric.api import sudo
 from fabric.context_managers import settings
+from multiprocessing.dummy import Pool
 import json
 import logging
 import os
 from tempfile import NamedTemporaryFile
 import time
+import sys
 
 
 class Snapshot(object):
@@ -88,15 +92,123 @@ class Snapshot(object):
     __str__ = __repr__
 
 
+class RestoreWorker(object):
+    def __init__(self, aws_access_key_id, aws_secret_access_key, snapshot):
+        self.aws_secret_access_key = aws_secret_access_key
+        self.aws_access_key_id = aws_access_key_id
+        self.s3connection = S3Connection(aws_access_key_id=self.aws_access_key_id,
+                                         aws_secret_access_key=self.aws_secret_access_key)
+        self.snapshot = snapshot
+        self.keyspace_table_matcher = None
+
+    def restore(self, keyspace, table, hosts, target_hosts):
+        # TODO:
+        # 4. sstableloader
+
+        logging.info("Restoring keyspace=%(keyspace)s, table=%(table)s" % dict(keyspace=keyspace,
+                                                                               table=table))
+
+        logging.info("From hosts: %(hosts)s to: %(target_hosts)s" % dict(hosts=', '.join(hosts),
+                                                                         target_hosts=', '.join(
+                                                                             target_hosts)))
+        if not table:
+            table = ".*?"
+
+        bucket = self.s3connection.get_bucket(self.snapshot.s3_bucket)
+
+        matcher_string = "(%(hosts)s).*/(%(keyspace)s)/(%(table)s)" % dict(hosts='|'.join(hosts), keyspace=keyspace, table=table)
+        self.keyspace_table_matcher = re.compile(matcher_string)
+
+        keys = []
+        tables = set()
+
+        for k in bucket.list(self.snapshot.base_path):
+            r = self.keyspace_table_matcher.search(k.name)
+            if not r:
+                continue
+
+            tables.add(r.group(3))
+            keys.append(k)
+
+        self._delete_old_dir_and_create_new(keyspace, tables)
+
+        total_size = reduce(lambda s, k: s + k.size, keys, 0)
+
+        logging.info("Found %(files_count)d files, with total size of %(size)s." % dict(
+            files_count=len(keys),
+            size=self._human_size(total_size)))
+
+        self._download_keys(keys, total_size)
+
+        logging.info("Finished downloading...")
+
+        self._run_sstableloader(keyspace, tables, target_hosts)
+
+    def _delete_old_dir_and_create_new(self, keyspace, tables):
+        keyspace_path = './%s' % keyspace
+        if os.path.exists(keyspace_path) and os.path.isdir(keyspace_path):
+            logging.warning("Deleteing directory (%s)..." % keyspace_path)
+            shutil.rmtree(keyspace_path)
+
+        for table in tables:
+            path = './%s/%s' % (keyspace, table)
+            if not os.path.exists(path):
+                os.makedirs(path)
+
+    def _download_keys(self, keys, total_size, pool_size=5):
+        logging.info("Starting to download...")
+
+        progress_string = ""
+        read_bytes = 0
+
+        thread_pool = Pool(pool_size)
+
+        for size in thread_pool.imap(self._download_key, keys):
+            old_width = len(progress_string)
+            read_bytes += size
+            progress_string = "%s / %s (%.2f%%)" % (self._human_size(read_bytes),
+                                                    self._human_size(total_size),
+                                                    (read_bytes/float(total_size))*100.0)
+            width = len(progress_string)
+            padding = ""
+            if width < old_width:
+                padding = " "*(width-old_width)
+            progress_string = "%s%s\r" % (progress_string, padding)
+
+            sys.stderr.write(progress_string)
+
+    def _download_key(self, key):
+        r = self.keyspace_table_matcher.search(key.name)
+        filename = './%s/%s/%s_%s' % (r.group(2), r.group(3), key.name.split('/')[2], key.name.split('/')[-1])
+        key.get_contents_to_filename(filename)
+
+        return key.size
+
+    def _human_size(self, size):
+        for x in ['bytes', 'KB', 'MB', 'GB']:
+            if size < 1024.0:
+                return "%3.1f%s" % (size, x)
+            size /= 1024.0
+        return "%3.1f%s" % (size, 'TB')
+
+    def _run_sstableloader(self, keyspace, tables, target_hosts):
+        # TODO: get path to sstableloader
+        for table in tables:
+            command = 'sstableloader --nodes %(hosts)s -v %(keyspace)s/%(table)s' % dict(
+                hosts=','.join(target_hosts), keyspace=keyspace, table=table)
+            logging.info("invoking: %s", command)
+
+            os.system(command)
+
 class BackupWorker(object):
     """
     BackupWorker does the actual snapshot / backup work
 
     Backup process is split in this steps:
         - requesting cassandra to create new backups
-        - uploadint backup files to S3
+        - uploading backup files to S3
         - clearing backup files from nodes
-        - updating backup meta informations
+        - updating backup meta information
 
     When performing a new snapshot the manifest of the snapshot is
     uploaded to S3 for later use.
@@ -314,6 +426,9 @@ class SnapshotCollection(object):
         self.aws_secret_access_key = aws_secret_access_key
 
     def _read_s3(self):
+        if self.snapshots:
+            return
+
         conn = S3Connection(self.aws_access_key_id, self.aws_secret_access_key)
         bucket = conn.get_bucket(self.s3_bucket)
         self.snapshots = []
@@ -331,6 +446,14 @@ class SnapshotCollection(object):
                 Snapshot.load_manifest_file(manifest_data, self.s3_bucket))
         self.snapshots = sorted(self.snapshots, reverse=True)
 
+    def get_snapshot_by_name(self, name):
+        snapshots = filter(lambda s: s.name == name, self)
+        return snapshots and snapshots[0]
+
+    def get_latest(self):
+        self._read_s3()
+        return self.snapshots[0]
+
     def get_snapshot_for(self, hosts, keyspaces, table):
         '''
         returns the most recent compatible snapshot
@@ -345,6 +468,5 @@ class SnapshotCollection(object):
             return snapshot
 
     def __iter__(self):
-        if self.snapshots is None:
-            self._read_s3()
+        self._read_s3()
         return iter(self.snapshots)
