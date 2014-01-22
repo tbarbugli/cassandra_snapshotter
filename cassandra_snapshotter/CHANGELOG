@@ -1,3 +1,5 @@
 0.2.0
  * Compress backups with lzop
  * Upload files using a python agent installed on nodes
+ * Add restore from S3 to cluster (using sstableloader)
+ 
