@@ -23,7 +23,7 @@ setup(
     entry_points={
         'console_scripts': [
             'cassandra-snapshotter = cassandra_snapshotter.main:main',
-            'cassandra-snapshotter-upload-manifest = cassandra_snapshotter.agent:main'
+            'cassandra-snapshotter-agent = cassandra_snapshotter.agent:main'
         ]
     },
     classifiers=[
