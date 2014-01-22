@@ -86,8 +86,8 @@ def main():
 
     put_parser.add_argument('--concurrency',
                            required=False,
-                           default=4,
-                           type=DEFAULT_CONCURRENCY,
+                           default=DEFAULT_CONCURRENCY,
+                           type=int,
                            help='Compress and upload concurrent processes')
 
     args = base_parser.parse_args()
