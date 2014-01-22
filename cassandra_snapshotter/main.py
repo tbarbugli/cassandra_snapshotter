@@ -1,10 +1,10 @@
-import argparse
 from collections import defaultdict
 from fabric.api import env
 import logging
-from snapshotting import BackupWorker
+from snapshotting import BackupCoordinator
 from snapshotting import Snapshot
 from snapshotting import SnapshotCollection
+from utils import base_parser
 
 
 def run_backup(args):
@@ -27,7 +27,7 @@ def run_backup(args):
         )
         create_snapshot = existing_snapshot is None
 
-    worker = BackupWorker(
+    worker = BackupCoordinator(
         aws_access_key_id=args.aws_access_key_id,
         aws_secret_access_key=args.aws_secret_access_key,
         cassandra_data_path=args.cassandra_data_path,
@@ -69,32 +69,8 @@ def list_backups(args):
         print '------------------------' + '-' * len(path)
 
 def main():
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        description=__doc__)
 
-    # common arguments
-    parser.add_argument('--aws-access-key-id',
-                        required=True,
-                        help='public AWS access key.')
-
-    parser.add_argument('--aws-secret-access-key',
-                        required=True,
-                        help='S3 secret access key.')
-
-    parser.add_argument('--s3-bucket-name',
-                        required=True,
-                        help='S3 bucket name for backups.')
-
-    parser.add_argument('--s3-base-path',
-                        required=True,
-                        help='S3 base path for backups.')
-
-    parser.add_argument('-v', '--verbose',
-                        action='store_true',
-                        help='increase output verbosity')
-
-    subparsers = parser.add_subparsers(title='subcommands',
+    subparsers = base_parser.add_subparsers(title='subcommands',
                                        dest='subcommand')
 
     subparsers.add_parser('list', help='list existing backups')
@@ -129,7 +105,7 @@ def main():
                                action='store_true',
                                help='create a new snapshot')
 
-    args = parser.parse_args()
+    args = base_parser.parse_args()
     subcommand = args.subcommand
 
     if args.verbose:

@@ -88,15 +88,15 @@ class Snapshot(object):
     __str__ = __repr__
 
 
-class BackupWorker(object):
+class BackupCoordinator(object):
     """
-    BackupWorker does the actual snapshot / backup work
+    BackupCoordinator does the actual snapshot / backup work
 
     Backup process is split in this steps:
-        - requesting cassandra to create new backups
-        - uploadint backup files to S3
-        - clearing backup files from nodes
-        - updating backup meta informations
+        - requests cassandra to create new backups
+        - uploads backup files to S3
+        - clears backup files from nodes
+        - updates backup meta informations
 
     When performing a new snapshot the manifest of the snapshot is
     uploaded to S3 for later use.
