@@ -235,7 +235,7 @@ class BackupWorker(object):
     def get_remote_tmp_folder(self):
         return '/tmp/'
 
-    def create_s3funnel_manifest(self, files):
+    def create_upload_manifest(self, files):
         manifest = NamedTemporaryFile(delete=False)
         manifest.write('\n'.join("%s" % f for f in files))
         manifest.close()
@@ -244,7 +244,7 @@ class BackupWorker(object):
     def upload_backups_to_s3(self, snapshot, files):
         prefix = '/'.join(snapshot.base_path.split(
             '/') + [self.get_current_node_hostname()])
-        manifest = self.create_s3funnel_manifest(files)
+        manifest = self.create_upload_manifest(files)
         manifest_path = self.get_remote_tmp_folder() + manifest.name.split(os.path.sep)[-1]
         put(manifest.name, manifest_path)
         os.unlink(manifest.name)
@@ -325,7 +325,7 @@ class BackupWorker(object):
         if incremental_backups:
             backup_command = '%(nodetool)s flush %(keyspaces)s %(table_param)s'
         else:
-            backup_command = '%(nodetool)s snapshot -t "%(snapshot)s" %(keyspaces)s %(table_param)s'
+            backup_command = '%(nodetool)s snapshot -t %(snapshot)s %(keyspaces)s %(table_param)s'
 
         cmd = backup_command % dict(
             nodetool=self.nodetool_path,

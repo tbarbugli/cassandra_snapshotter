@@ -11,11 +11,18 @@ from utils import map_wrap
 
 
 BUFFER_SIZE = 62914560 # 60MB
-LZOP_BIN = '/usr/bin/lzop'
 LZOP_BIN = 'lzop'
 DEFAULT_CONCURRENCY = max(multiprocessing.cpu_count() - 1, 1)
 
 logger = logging.getLogger(__name__)
+
+
+def check_lzop():
+    try:
+        subprocess.call([LZOP_BIN, '--version'])
+    except OSError:
+        print "%s not found on path" % LZOP_BIN
+
 
 def compressed_pipe(path):
     """
@@ -25,7 +32,6 @@ def compressed_pipe(path):
     compression is done with lzop
 
     """
-    print path
     lzop = subprocess.Popen(
         (LZOP_BIN, '--stdout', path),
         bufsize=BUFFER_SIZE,
@@ -92,6 +98,8 @@ def main():
 
     args = base_parser.parse_args()
     subcommand = args.subcommand
+
+    check_lzop()
 
     if subcommand == 'put':
         put_from_manifest(
