@@ -13,7 +13,7 @@ from utils import map_wrap
 BUFFER_SIZE = 62914560 # 60MB
 LZOP_BIN = '/usr/bin/lzop'
 LZOP_BIN = 'lzop'
-
+DEFAULT_CONCURRENCY = max(multiprocessing.cpu_count() - 1, 1)
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +69,6 @@ def put_from_manifest(s3_bucket, s3_base_path, aws_access_key_id, aws_secret_acc
     bucket = get_bucket(s3_bucket, aws_access_key_id, aws_secret_access_key)
     manifest_fp = open(manifest, 'r')
     files = manifest_fp.read().splitlines()
-    if concurrency is None:
-        concurrency = max(multiprocessing.cpu_count() - 1, 1)
     pool = multiprocessing.Pool(concurrency)
     for _ in pool.imap(upload_file, ((bucket, f, destination_path(s3_base_path, f)) for f in files)):
         pass
@@ -88,7 +86,8 @@ def main():
 
     put_parser.add_argument('--concurrency',
                            required=False,
-                           default=None,
+                           default=4,
+                           type=DEFAULT_CONCURRENCY,
                            help='Compress and upload concurrent processes')
 
     args = base_parser.parse_args()
