@@ -2,3 +2,4 @@ Contributors
 ------------
 
 Tommaso Barbugli
+Arik Fraimovich
