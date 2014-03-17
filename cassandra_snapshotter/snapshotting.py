@@ -329,10 +329,10 @@ class BackupWorker(object):
                 schema_path = '/'.join([snapshot.base_path, "schema_%s.cdl" % ks])
                 self.write_on_S3(snapshot.s3_bucket, schema_path, content)
         else:
-                logging.info('Writing schema for all keyspaces')
-                content = self.get_keyspace_schema()
-                schema_path = '/'.join([snapshot.base_path, "schema.cdl"])
-                self.write_on_S3(snapshot.s3_bucket, schema_path, content)
+            logging.info('Writing schema for all keyspaces')
+            content = self.get_keyspace_schema()
+            schema_path = '/'.join([snapshot.base_path, "schema.cdl"])
+            self.write_on_S3(snapshot.s3_bucket, schema_path, content)
 
     def write_snapshot_manifest(self, snapshot):
         content = snapshot.dump_manifest_file()
