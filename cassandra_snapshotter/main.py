@@ -31,7 +31,8 @@ def run_backup(args):
         aws_access_key_id=args.aws_access_key_id,
         aws_secret_access_key=args.aws_secret_access_key,
         cassandra_data_path=args.cassandra_data_path,
-        nodetool_path=args.nodetool_path
+        nodetool_path=args.nodetool_path,
+        connection_pool_size=args.connection_pool_size
     )
 
     if create_snapshot:
@@ -132,6 +133,10 @@ def main():
     backup_parser.add_argument('--new-snapshot',
                                action='store_true',
                                help='create a new snapshot')
+
+    backup_parser.add_argument('--connection-pool-size',
+                               default=12,
+                               help='Number of simultaneous connections to cassandra nodes.')
 
     # restore snapshot arguments
     restore_parser = subparsers.add_parser('restore', help='restores a snapshot')
