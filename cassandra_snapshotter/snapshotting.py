@@ -223,12 +223,13 @@ class BackupWorker(object):
     connection_pool_size = 12
 
     def __init__(self, aws_secret_access_key,
-                 aws_access_key_id, cassandra_data_path, nodetool_path,
-                 backup_schema):
+                 aws_access_key_id, cassandra_data_path,
+                 nodetool_path, cassandra_bin_dir, backup_schema):
         self.aws_secret_access_key = aws_secret_access_key
         self.aws_access_key_id = aws_access_key_id
         self.cassandra_data_path = cassandra_data_path
-        self.nodetool_path = nodetool_path
+        self.nodetool_path = nodetool_path or "%s/nodetool" % cassandra_bin_dir
+        self.cassandra_cli_path = "%s/cassandra-cli" % cassandra_bin_dir
         self.backup_schema = backup_schema
 
     def get_current_node_hostname(self):
@@ -294,17 +295,17 @@ class BackupWorker(object):
     def get_ring_description(self):
         with settings(host_string=env.hosts[0]):
             with hide('output'):
-                ring_description = sudo('nodetool ring')
+                ring_description = sudo(self.nodetool_path + ' ring')
         return ring_description
 
     def get_keyspace_schema(self, keyspace=None):
         output = ""
         with settings(host_string=env.hosts[0]):
             with hide('output'):
+                cmd = "echo -e 'show schema;\n' | %s" % (self.cassandra_cli_path)
                 if keyspace:
-                    output = sudo("echo -e 'show schema;\n' | cassandra-cli -k %s" % keyspace)
-                else:
-                    output = sudo("echo -e 'show schema;\n' | cassandra-cli")
+                    cmd = "echo -e 'show schema;\n' | %s -k %s" % (self.cassandra_cli_path, keyspace)
+                output = sudo(cmd)
         # remove unwanted lines
         schema = '\n'.join([l for l in output.split("\n") if re.match(r'(create|use| )',l)])
         return schema
