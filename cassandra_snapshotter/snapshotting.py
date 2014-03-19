@@ -223,11 +223,14 @@ class BackupWorker(object):
     connection_pool_size = 12
 
     def __init__(self, aws_secret_access_key,
-                 aws_access_key_id, cassandra_data_path, nodetool_path):
+                 aws_access_key_id, cassandra_data_path,
+                 nodetool_path, cassandra_bin_dir, backup_schema):
         self.aws_secret_access_key = aws_secret_access_key
         self.aws_access_key_id = aws_access_key_id
         self.cassandra_data_path = cassandra_data_path
-        self.nodetool_path = nodetool_path
+        self.nodetool_path = nodetool_path or "%s/nodetool" % cassandra_bin_dir
+        self.cassandra_cli_path = "%s/cassandra-cli" % cassandra_bin_dir
+        self.backup_schema = backup_schema
 
     def get_current_node_hostname(self):
         return env.host_string
@@ -272,6 +275,8 @@ class BackupWorker(object):
             self.clear_cluster_snapshot(snapshot)
         self.write_ring_description(snapshot)
         self.write_snapshot_manifest(snapshot)
+        if self.backup_schema:
+            self.write_schema(snapshot)
 
     def update_snapshot(self, snapshot):
         """
@@ -284,12 +289,26 @@ class BackupWorker(object):
         finally:
             self.clear_cluster_backups(snapshot)
         self.write_ring_description(snapshot)
+        if self.backup_schema:
+            self.write_schema(snapshot)
 
     def get_ring_description(self):
         with settings(host_string=env.hosts[0]):
             with hide('output'):
-                ring_description = sudo('nodetool ring')
+                ring_description = sudo(self.nodetool_path + ' ring')
         return ring_description
+
+    def get_keyspace_schema(self, keyspace=None):
+        output = ""
+        with settings(host_string=env.hosts[0]):
+            with hide('output'):
+                cmd = "echo -e 'show schema;\n' | %s" % (self.cassandra_cli_path)
+                if keyspace:
+                    cmd = "echo -e 'show schema;\n' | %s -k %s" % (self.cassandra_cli_path, keyspace)
+                output = sudo(cmd)
+        # remove unwanted lines
+        schema = '\n'.join([l for l in output.split("\n") if re.match(r'(create|use| )',l)])
+        return schema
 
     def write_on_S3(self, bucket_name, path, content):
         conn = S3Connection(self.aws_access_key_id, self.aws_secret_access_key)
@@ -298,9 +317,23 @@ class BackupWorker(object):
         key.set_contents_from_string(content)
 
     def write_ring_description(self, snapshot):
+        logging.info('Writing ring description')
         content = self.get_ring_description()
         ring_path = '/'.join([snapshot.base_path, 'ring'])
         self.write_on_S3(snapshot.s3_bucket, ring_path, content)
+
+    def write_schema(self, snapshot):
+        if snapshot.keyspaces:
+            for ks in snapshot.keyspaces.split(","):
+                logging.info('Writing schema for keyspace %s' % ks)
+                content = self.get_keyspace_schema(ks)
+                schema_path = '/'.join([snapshot.base_path, "schema_%s.cdl" % ks])
+                self.write_on_S3(snapshot.s3_bucket, schema_path, content)
+        else:
+            logging.info('Writing schema for all keyspaces')
+            content = self.get_keyspace_schema()
+            schema_path = '/'.join([snapshot.base_path, "schema.cdl"])
+            self.write_on_S3(snapshot.s3_bucket, schema_path, content)
 
     def write_snapshot_manifest(self, snapshot):
         content = snapshot.dump_manifest_file()
