@@ -2,4 +2,5 @@
  * Compress backups with lzop
  * Upload files using a python agent installed on nodes
  * Add restore from S3 to cluster (using sstableloader)
- 
+ * Add support for thrift schema backups (via cassandra-cli)
+ * Configurable connection pool size option

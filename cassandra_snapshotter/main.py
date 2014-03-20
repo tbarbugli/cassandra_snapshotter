@@ -32,6 +32,8 @@ def run_backup(args):
         aws_secret_access_key=args.aws_secret_access_key,
         cassandra_data_path=args.cassandra_data_path,
         nodetool_path=args.nodetool_path,
+        cassandra_bin_dir=args.cassandra_bin_dir,
+        backup_schema=args.backup_schema,
         connection_pool_size=args.connection_pool_size
     )
 
@@ -124,8 +126,12 @@ def main():
                                help='cassandra data path.')
 
     backup_parser.add_argument('--nodetool-path',
-                               default='/usr/bin/nodetool',
+                               default=None,
                                help='nodetool path.')
+
+    backup_parser.add_argument('--cassandra-bin-dir',
+                               default='/usr/bin',
+                               help='cassandra binaries directory')
 
     backup_parser.add_argument('--user',
                                help='the ssh user to loging on nodes')
@@ -133,6 +139,10 @@ def main():
     backup_parser.add_argument('--new-snapshot',
                                action='store_true',
                                help='create a new snapshot')
+
+    backup_parser.add_argument('--backup-schema',
+                               action='store_true',
+                               help='Backup (thrift) schema of selected keyspaces')
 
     backup_parser.add_argument('--connection-pool-size',
                                default=12,
