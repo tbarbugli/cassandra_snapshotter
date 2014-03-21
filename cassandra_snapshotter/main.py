@@ -33,7 +33,8 @@ def run_backup(args):
         cassandra_data_path=args.cassandra_data_path,
         nodetool_path=args.nodetool_path,
         cassandra_bin_dir=args.cassandra_bin_dir,
-        backup_schema=args.backup_schema
+        backup_schema=args.backup_schema,
+        connection_pool_size=args.connection_pool_size
     )
 
     if create_snapshot:
@@ -142,6 +143,10 @@ def main():
     backup_parser.add_argument('--backup-schema',
                                action='store_true',
                                help='Backup (thrift) schema of selected keyspaces')
+
+    backup_parser.add_argument('--connection-pool-size',
+                               default=12,
+                               help='Number of simultaneous connections to cassandra nodes.')
 
     # restore snapshot arguments
     restore_parser = subparsers.add_parser('restore', help='restores a snapshot')

@@ -220,17 +220,17 @@ class BackupWorker(object):
 
     """
 
-    connection_pool_size = 12
-
     def __init__(self, aws_secret_access_key,
                  aws_access_key_id, cassandra_data_path,
-                 nodetool_path, cassandra_bin_dir, backup_schema):
+                 nodetool_path, cassandra_bin_dir, backup_schema,
+                 connection_pool_size=12):
         self.aws_secret_access_key = aws_secret_access_key
         self.aws_access_key_id = aws_access_key_id
         self.cassandra_data_path = cassandra_data_path
         self.nodetool_path = nodetool_path or "%s/nodetool" % cassandra_bin_dir
         self.cassandra_cli_path = "%s/cassandra-cli" % cassandra_bin_dir
         self.backup_schema = backup_schema
+        self.connection_pool_size = connection_pool_size
 
     def get_current_node_hostname(self):
         return env.host_string
