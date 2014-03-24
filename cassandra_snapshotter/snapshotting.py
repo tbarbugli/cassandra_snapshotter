@@ -116,7 +116,7 @@ class RestoreWorker(object):
 
         bucket = self.s3connection.get_bucket(self.snapshot.s3_bucket)
 
-        matcher_string = "(%(hosts)s).*/(%(keyspace)s)/(%(table)s)" % dict(hosts='|'.join(hosts), keyspace=keyspace, table=table)
+        matcher_string = "(%(hosts)s).*/(%(keyspace)s)/(%(table)s)/" % dict(hosts='|'.join(hosts), keyspace=keyspace, table=table)
         self.keyspace_table_matcher = re.compile(matcher_string)
 
         keys = []
