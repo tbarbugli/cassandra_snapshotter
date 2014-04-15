@@ -1,3 +1,6 @@
+0.2.1
+ * add support for password authentication
+
 0.2.0
  * Compress backups with lzop
  * Upload files using a python agent installed on nodes

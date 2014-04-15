@@ -10,6 +10,10 @@ from utils import base_parser
 def run_backup(args):
     if args.user:
         env.user = args.user
+
+    if args.password:
+        env.password = args.password
+
     env.hosts = sorted(args.hosts.split(','))
 
     if args.new_snapshot:
@@ -135,6 +139,10 @@ def main():
 
     backup_parser.add_argument('--user',
                                help='the ssh user to loging on nodes')
+
+    backup_parser.add_argument('--password',
+                                default='',
+                                help='user password to connect with hosts')
 
     backup_parser.add_argument('--new-snapshot',
                                action='store_true',
