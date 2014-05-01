@@ -9,16 +9,18 @@ snapshots and incremental backups.
 How to install
 --------------
 
-On your worker machine (the machines that runs cassandra_cluster)
+Both the machine that runs the backup and the Cassandra nodes need to install the tool
 
 ``` bash
-pip install cassandra_snapshotter`
+pip install cassandra_snapshotter
 ```
 
-On your cluster nodes:
+Nodes in the cluster also need to have lzop installed so that backups on S3 can be archived compressed
+
+You can install it on Debian/Ubuntu via apt-get
 
 ``` bash
-pip install s3funnel
+apt-get install lzop
 ```
 
 Make sure you have JNA enabled and (if you want to use them) that incremental backups are enabled in your cassandra config file.
