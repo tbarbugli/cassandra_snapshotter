@@ -366,7 +366,9 @@ class BackupWorker(object):
             keyspaces=snapshot.keyspaces or '',
             table_param=table_param
         )
-        sudo(cmd)
+
+        with hide('running', 'stdout', 'stderr'):
+            sudo(cmd)
 
     def upload_cluster_backups(self, snapshot, incremental_backups):
         logging.info('Uploading backups')
