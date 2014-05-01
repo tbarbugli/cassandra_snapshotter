@@ -409,6 +409,8 @@ class BackupWorker(object):
                 path += ['snapshots', snapshot.name]
             path += ['*']
 
+            sudo('echo "collecting snapshot paths"')
+
             with hide('output'):
                 path = sudo('python -c "import os; print os.path.join(*%s)"' % path)
 
