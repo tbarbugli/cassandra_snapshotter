@@ -109,9 +109,8 @@ def create_upload_manifest(snapshot_name, snapshot_keyspaces, snapshot_table, da
             path += ['snapshots', snapshot_name]
         path += ['*']
 
-        os.path.join('*' % path)
-
-        glob_results = '\n'.join(glob.glob(path))
+        path = os.path.join(*path)
+        glob_results = '\n'.join(glob.glob(os.path.join(path)))
         files.extend([f.strip() for f in glob_results.split("\n")])
 
     with open(manifest_path, 'w') as manifest:
@@ -122,7 +121,7 @@ def main():
     subparsers = base_parser.add_subparsers(title='subcommands',
                                        dest='subcommand')
     put_parser = subparsers.add_parser('put', help='put files on s3 from a manifest')
-    manifest_parser = subparsers.add_parser('create-backup-manifest', help='put files on s3 from a manifest')
+    manifest_parser = subparsers.add_parser('create-upload-manifest', help='put files on s3 from a manifest')
 
     # put arguments
     put_parser = add_s3_arguments(put_parser)
@@ -136,18 +135,16 @@ def main():
                            type=int,
                            help='Compress and upload concurrent processes')
 
-    # create-backup-manifest arguments
+    # create-upload-manifest arguments
     manifest_parser.add_argument('--snapshot_name', required=True, type=str)
     manifest_parser.add_argument('--snapshot_keyspaces', default='', required=False, type=str)
     manifest_parser.add_argument('--snapshot_table', required=False, default='', type=str)
     manifest_parser.add_argument('--data_path', required=True, type=str)
-    manifest_parser.add_argument('--incremental_backups', default=False, required=False, type=bool)
+    manifest_parser.add_argument('--incremental_backups', action='store_true', default=False)
     manifest_parser.add_argument('--manifest_path', required=True, type=str)
 
     args = base_parser.parse_args()
     subcommand = args.subcommand
-
-    check_lzop()
 
     if subcommand == 'create-upload-manifest':
         create_upload_manifest(
@@ -155,10 +152,12 @@ def main():
             args.snapshot_keyspaces,
             args.snapshot_table,
             args.data_path,
-            args.incremental_backups,
+            args.manifest_path,
+            args.incremental_backups
         )
 
     if subcommand == 'put':
+        check_lzop()
         put_from_manifest(
             args.s3_bucket_name,
             args.s3_base_path,
