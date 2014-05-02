@@ -238,24 +238,25 @@ class BackupWorker(object):
             '/') + [self.get_current_node_hostname()])
 
         manifest_path = '/tmp/backupmanifest'
-        manifest_command = "cassandra-snapshotter-agent create-backup-manifest --manifest_path=%(manifest_path)s --snapshot_name=%(snaphot_name)s --snapshot_keyspaces=%(snapshot_keyspaces)s --snapshot_table=%(snapshot_table)s --data_path=%(data_path)s %(incremental_backups)s"
+        manifest_command = "cassandra-snapshotter-agent %(incremental_backups)s create-upload-manifest --manifest_path=%(manifest_path)s --snapshot_name=%(snapshot_name)s --snapshot_keyspaces=%(snapshot_keyspaces)s --snapshot_table=%(snapshot_table)s --data_path=%(data_path)s"
         cmd = manifest_command % dict(
             manifest_path=manifest_path,
             snapshot_name=snapshot.name,
-            snapshot_keyspaces=snapshot.snapshot_keyspaces,
-            snapshot_table=snapshot.snapshot_table,
-            data_path=self.data_path,
+            snapshot_keyspaces=snapshot.keyspaces,
+            snapshot_table=snapshot.table,
+            data_path=self.cassandra_data_path,
             incremental_backups=incremental_backups and '--incremental_backups' or ''
         )
         sudo(cmd)
 
-        upload_command = "cassandra-snapshotter-agent --aws-access-key-id=%(key)s --aws-secret-access-key=%(secret)s --s3-bucket-name=%(bucket)s --s3-base-path=%(prefix)s  put --manifest=%(manifest)s --concurrency=4"
+        upload_command = "cassandra-snapshotter-agent %(incremental_backups)s put --aws-access-key-id=%(key)s --aws-secret-access-key=%(secret)s --s3-bucket-name=%(bucket)s --s3-base-path=%(prefix)s --manifest=%(manifest)s --concurrency=4"
         cmd = upload_command % dict(
             bucket=snapshot.s3_bucket,
             prefix=prefix,
             key=self.aws_access_key_id,
             secret=self.aws_secret_access_key,
-            manifest=manifest_path
+            manifest=manifest_path,
+            incremental_backups=incremental_backups and '--incremental_backups' or ''
         )
         sudo(cmd)
 
@@ -279,11 +280,8 @@ class BackupWorker(object):
         Updates backup data changed since :snapshot was done
         """
         logging.info('Update %r snapshot' % snapshot)
-        try:
-            self.start_cluster_backup(snapshot, incremental_backups=True)
-            self.upload_cluster_backups(snapshot, incremental_backups=True)
-        finally:
-            self.clear_cluster_backups(snapshot)
+        self.start_cluster_backup(snapshot, incremental_backups=True)
+        self.upload_cluster_backups(snapshot, incremental_backups=True)
         self.write_ring_description(snapshot)
         if self.backup_schema:
             self.write_schema(snapshot)
@@ -385,19 +383,6 @@ class BackupWorker(object):
             snapshot=snapshot.name
         )
         sudo(cmd)
-
-    def clear_cluster_backups(self, snapshot):
-        logging.info('Clearing backup data')
-        with settings(parallel=True, pool_size=self.connection_pool_size):
-            execute(self.clear_node_backups, snapshot)
-
-    def clear_node_backups(self, snapshot):
-        '''
-        cleans up backup files from a cassandra node
-        '''
-        files = self.get_node_backup_files(snapshot, incremental_backups=True)
-        for f in files:
-            sudo('rm %s' % f)
 
 
 class SnapshotCollection(object):

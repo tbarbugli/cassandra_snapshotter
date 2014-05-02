@@ -69,7 +69,8 @@ def upload_file(bucket, source, destination):
         raise
     mp.complete_upload()
 
-def put_from_manifest(s3_bucket, s3_base_path, aws_access_key_id, aws_secret_access_key, manifest, concurrency=None):
+
+def put_from_manifest(s3_bucket, s3_base_path, aws_access_key_id, aws_secret_access_key, manifest, concurrency=None, incremental_backups=False):
     '''
     uploads files listed in a manifest to amazon S3
     to support larger than 5GB files multipart upload is used (chunks of 60MB)
@@ -83,6 +84,10 @@ def put_from_manifest(s3_bucket, s3_base_path, aws_access_key_id, aws_secret_acc
     for _ in pool.imap(upload_file, ((bucket, f, destination_path(s3_base_path, f)) for f in files)):
         pass
     pool.terminate()
+
+    if incremental_backups:
+        for f in files:
+            os.remove(f)
 
 
 def create_upload_manifest(snapshot_name, snapshot_keyspaces, snapshot_table, data_path, manifest_path, incremental_backups=False):
@@ -120,6 +125,8 @@ def create_upload_manifest(snapshot_name, snapshot_keyspaces, snapshot_table, da
 def main():
     subparsers = base_parser.add_subparsers(title='subcommands',
                                        dest='subcommand')
+    base_parser.add_argument('--incremental_backups', action='store_true', default=False)
+
     put_parser = subparsers.add_parser('put', help='put files on s3 from a manifest')
     manifest_parser = subparsers.add_parser('create-upload-manifest', help='put files on s3 from a manifest')
 
@@ -140,7 +147,6 @@ def main():
     manifest_parser.add_argument('--snapshot_keyspaces', default='', required=False, type=str)
     manifest_parser.add_argument('--snapshot_table', required=False, default='', type=str)
     manifest_parser.add_argument('--data_path', required=True, type=str)
-    manifest_parser.add_argument('--incremental_backups', action='store_true', default=False)
     manifest_parser.add_argument('--manifest_path', required=True, type=str)
 
     args = base_parser.parse_args()
@@ -164,7 +170,8 @@ def main():
             args.aws_access_key_id,
             args.aws_secret_access_key,
             args.manifest,
-            args.concurrency
+            args.concurrency,
+            args.incremental_backups
         )
 
 if __name__ == '__main__':
