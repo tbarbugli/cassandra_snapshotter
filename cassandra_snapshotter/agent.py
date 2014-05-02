@@ -6,8 +6,12 @@ except ImportError:
 import subprocess
 import multiprocessing
 import logging
+import os
+import glob
+from utils import add_s3_arguments
 from utils import base_parser
 from utils import map_wrap
+from tempfile import NamedTemporaryFile
 
 
 BUFFER_SIZE = 62914560 # 60MB
@@ -80,12 +84,48 @@ def put_from_manifest(s3_bucket, s3_base_path, aws_access_key_id, aws_secret_acc
         pass
     pool.terminate()
 
+
+def create_upload_manifest(snapshot_name, snapshot_keyspaces, snapshot_table, data_path, manifest_path, incremental_backups=False):
+    if snapshot_keyspaces:
+        keyspace_globs = snapshot_keyspaces.split()
+    else:
+        keyspace_globs = ['*']
+
+    if snapshot_table:
+        table_glob = snapshot_table
+    else:
+        table_glob = '*'
+
+    files = []
+    for keyspace_glob in keyspace_globs:
+        path = [
+            data_path,
+            keyspace_glob,
+            table_glob
+        ]
+        if incremental_backups:
+            path += ['backups']
+        else:
+            path += ['snapshots', snapshot_name]
+        path += ['*']
+
+        os.path.join('*' % path)
+
+        glob_results = '\n'.join(glob.glob(path))
+        files.extend([f.strip() for f in glob_results.split("\n")])
+
+    with open(manifest_path, 'w') as manifest:
+        manifest.write('\n'.join("%s" % f for f in files))
+
+
 def main():
     subparsers = base_parser.add_subparsers(title='subcommands',
                                        dest='subcommand')
     put_parser = subparsers.add_parser('put', help='put files on s3 from a manifest')
+    manifest_parser = subparsers.add_parser('create-backup-manifest', help='put files on s3 from a manifest')
 
     # put arguments
+    put_parser = add_s3_arguments(put_parser)
     put_parser.add_argument('--manifest',
                            required=True,
                            help='The manifest containing the files to put on s3')
@@ -96,10 +136,27 @@ def main():
                            type=int,
                            help='Compress and upload concurrent processes')
 
+    # create-backup-manifest arguments
+    manifest_parser.add_argument('--snapshot_name', required=True, type=str)
+    manifest_parser.add_argument('--snapshot_keyspaces', default='', required=False, type=str)
+    manifest_parser.add_argument('--snapshot_table', required=False, default='', type=str)
+    manifest_parser.add_argument('--data_path', required=True, type=str)
+    manifest_parser.add_argument('--incremental_backups', default=False, required=False, type=bool)
+    manifest_parser.add_argument('--manifest_path', required=True, type=str)
+
     args = base_parser.parse_args()
     subcommand = args.subcommand
 
     check_lzop()
+
+    if subcommand == 'create-upload-manifest':
+        create_upload_manifest(
+            args.snapshot_name,
+            args.snapshot_keyspaces,
+            args.snapshot_table,
+            args.data_path,
+            args.incremental_backups,
+        )
 
     if subcommand == 'put':
         put_from_manifest(

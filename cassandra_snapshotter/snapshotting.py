@@ -6,14 +6,12 @@ from datetime import datetime
 from fabric.api import env
 from fabric.api import execute
 from fabric.api import hide
-from fabric.api import put
 from fabric.api import sudo
 from fabric.context_managers import settings
 from multiprocessing.dummy import Pool
 import json
 import logging
 import os
-from tempfile import NamedTemporaryFile
 import time
 import sys
 
@@ -235,22 +233,21 @@ class BackupWorker(object):
     def get_current_node_hostname(self):
         return env.host_string
 
-    def get_remote_tmp_folder(self):
-        return '/tmp/'
-
-    def create_upload_manifest(self, files):
-        manifest = NamedTemporaryFile(delete=False)
-        manifest.write('\n'.join("%s" % f for f in files))
-        manifest.close()
-        return manifest
-
-    def upload_backups_to_s3(self, snapshot, files):
+    def upload_node_backups(self, snapshot, incremental_backups):
         prefix = '/'.join(snapshot.base_path.split(
             '/') + [self.get_current_node_hostname()])
-        manifest = self.create_upload_manifest(files)
-        manifest_path = self.get_remote_tmp_folder() + manifest.name.split(os.path.sep)[-1]
-        put(manifest.name, manifest_path)
-        os.unlink(manifest.name)
+
+        manifest_path = '/tmp/backupmanifest'
+        manifest_command = "cassandra-snapshotter-agent create-backup-manifest --manifest_path=%(manifest_path)s --snapshot_name=%(snaphot_name)s --snapshot_keyspaces=%(snapshot_keyspaces)s --snapshot_table=%(snapshot_table)s --data_path=%(data_path)s %(incremental_backups)s"
+        cmd = manifest_command % dict(
+            manifest_path=manifest_path,
+            snapshot_name=snapshot.name,
+            snapshot_keyspaces=snapshot.snapshot_keyspaces,
+            snapshot_table=snapshot.snapshot_table,
+            data_path=self.data_path,
+            incremental_backups=incremental_backups and '--incremental_backups' or ''
+        )
+        sudo(cmd)
 
         upload_command = "cassandra-snapshotter-agent --aws-access-key-id=%(key)s --aws-secret-access-key=%(secret)s --s3-bucket-name=%(bucket)s --s3-base-path=%(prefix)s  put --manifest=%(manifest)s --concurrency=4"
         cmd = upload_command % dict(
@@ -261,7 +258,6 @@ class BackupWorker(object):
             manifest=manifest_path
         )
         sudo(cmd)
-        sudo("rm %s" % manifest_path)
 
     def snapshot(self, snapshot):
         """
@@ -306,7 +302,6 @@ class BackupWorker(object):
                 if keyspace:
                     cmd = "echo -e 'show schema;\n' | %s -k %s" % (self.cassandra_cli_path, keyspace)
                 output = sudo(cmd)
-        # remove unwanted lines
         schema = '\n'.join([l for l in output.split("\n") if re.match(r'(create|use| )',l)])
         return schema
 
@@ -374,53 +369,6 @@ class BackupWorker(object):
         logging.info('Uploading backups')
         with settings(parallel=True, pool_size=self.connection_pool_size):
             execute(self.upload_node_backups, snapshot, incremental_backups)
-
-    def upload_node_backups(self, snapshot, incremental_backups):
-        '''
-        uploads node backup data to S3
-        '''
-        files = self.get_node_backup_files(snapshot, incremental_backups)
-        if len(files) == 0:
-            logging.warning('nothing to backup here')
-        else:
-            self.upload_backups_to_s3(snapshot, files)
-
-    def get_node_backup_files(self, snapshot, incremental_backups):
-        if snapshot.keyspaces:
-            keyspace_globs = snapshot.keyspaces.split()
-        else:
-            keyspace_globs = ['*']
-
-        if snapshot.table:
-            table_glob = snapshot.table
-        else:
-            table_glob = '*'
-
-        files = []
-        for keyspace_glob in keyspace_globs:
-            path = [
-                self.cassandra_data_path,
-                keyspace_glob,
-                table_glob
-            ]
-            if incremental_backups:
-                path += ['backups']
-            else:
-                path += ['snapshots', snapshot.name]
-            path += ['*']
-
-            sudo('echo "collecting snapshot paths"')
-
-            with hide('output'):
-                path = sudo('python -c "import os; print os.path.join(*%s)"' % path)
-
-            logging.info('list files to backup matching %s path', path)
-            with hide('output'):
-                glob_results = sudo("python -c \"import glob; print '\\n'.join(glob.glob('%s'))\"" % path)
-                files.extend([f.strip() for f in glob_results.split("\n")])
-            logging.info("found %d files", len(files))
-
-        return files
 
     def clear_cluster_snapshot(self, snapshot):
         logging.info('Clearing snapshots')
