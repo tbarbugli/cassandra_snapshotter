@@ -8,6 +8,7 @@ import multiprocessing
 import logging
 from utils import base_parser
 from utils import map_wrap
+from utils import get_s3_connection_host
 
 
 BUFFER_SIZE = 62914560 # 60MB
@@ -43,10 +44,11 @@ def compressed_pipe(path):
         if not chunk: break
         yield StringIO(chunk)
 
-def get_bucket(s3_bucket, aws_access_key_id, aws_secret_access_key):
+def get_bucket(s3_bucket, aws_access_key_id, aws_secret_access_key, s3_connection_host):
     connection = S3Connection(
         aws_access_key_id=aws_access_key_id,
-        aws_secret_access_key=aws_secret_access_key
+        aws_secret_access_key=aws_secret_access_key,
+        host=s3_connection_host
     )
     return connection.get_bucket(s3_bucket)
 
@@ -65,14 +67,14 @@ def upload_file(bucket, source, destination):
         raise
     mp.complete_upload()
 
-def put_from_manifest(s3_bucket, s3_base_path, aws_access_key_id, aws_secret_access_key, manifest, concurrency=None):
+def put_from_manifest(s3_bucket, s3_connection_host, s3_base_path, aws_access_key_id, aws_secret_access_key, manifest, concurrency=None):
     '''
     uploads files listed in a manifest to amazon S3
     to support larger than 5GB files multipart upload is used (chunks of 60MB)
     files are uploaded compressed with lzop, the .lzo suffix is appended to the file name
 
     '''
-    bucket = get_bucket(s3_bucket, aws_access_key_id, aws_secret_access_key)
+    bucket = get_bucket(s3_bucket, aws_access_key_id, aws_secret_access_key, s3_connection_host)
     manifest_fp = open(manifest, 'r')
     files = manifest_fp.read().splitlines()
     pool = multiprocessing.Pool(concurrency)
@@ -104,6 +106,7 @@ def main():
     if subcommand == 'put':
         put_from_manifest(
             args.s3_bucket_name,
+            get_s3_connection_host(args.s3_bucket_region),
             args.s3_base_path,
             args.aws_access_key_id,
             args.aws_secret_access_key,

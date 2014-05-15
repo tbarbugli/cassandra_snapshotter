@@ -1,6 +1,17 @@
 import argparse
 import functools
 
+S3_CONNECTION_HOSTS = {
+    'us-east-1': 's3.amazonaws.com',
+    'us-west-2': 's3-us-west-2.amazonaws.com',
+    'us-west-1': 's3-us-west-1.amazonaws.com',
+    'eu-west-1': 's3-eu-west-1.amazonaws.com',
+    'ap-southeast-1': 's3-ap-southeast-1.amazonaws.com',
+    'ap-southeast-2': 's3-ap-southeast-2.amazonaws.com',
+    'ap-northeast-1': 's3-ap-northeast-1.amazonaws.com',
+    'sa-east-1': 's3-sa-east-1.amazonaws.com'
+}
+
 base_parser = argparse.ArgumentParser(
     formatter_class=argparse.RawDescriptionHelpFormatter,
     description=__doc__)
@@ -18,6 +29,10 @@ base_parser.add_argument('--s3-bucket-name',
                     required=True,
                     help='S3 bucket name for backups.')
 
+base_parser.add_argument('--s3-bucket-region',
+                    default='us-east-1',
+                    help='S3 bucket region (default us-east-1)')
+
 base_parser.add_argument('--s3-base-path',
                     required=True,
                     help='S3 base path for backups.')
@@ -25,6 +40,10 @@ base_parser.add_argument('--s3-base-path',
 base_parser.add_argument('-v', '--verbose',
                     action='store_true',
                     help='increase output verbosity')
+
+
+def get_s3_connection_host(s3_bucket_region):
+    return S3_CONNECTION_HOSTS[s3_bucket_region]
 
 def map_wrap(f):
     '''

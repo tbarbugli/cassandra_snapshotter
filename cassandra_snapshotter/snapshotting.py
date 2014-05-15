@@ -221,11 +221,13 @@ class BackupWorker(object):
     """
 
     def __init__(self, aws_secret_access_key,
-                 aws_access_key_id, cassandra_data_path,
+                 aws_access_key_id, s3_bucket_region, s3_connection_host, cassandra_data_path,
                  nodetool_path, cassandra_bin_dir, backup_schema,
                  connection_pool_size=12):
         self.aws_secret_access_key = aws_secret_access_key
         self.aws_access_key_id = aws_access_key_id
+        self.s3_bucket_region = s3_bucket_region
+        self.s3_connection_host = s3_connection_host
         self.cassandra_data_path = cassandra_data_path
         self.nodetool_path = nodetool_path or "%s/nodetool" % cassandra_bin_dir
         self.cassandra_cli_path = "%s/cassandra-cli" % cassandra_bin_dir
@@ -252,9 +254,10 @@ class BackupWorker(object):
         put(manifest.name, manifest_path)
         os.unlink(manifest.name)
 
-        upload_command = "cassandra-snapshotter-agent --aws-access-key-id=%(key)s --aws-secret-access-key=%(secret)s --s3-bucket-name=%(bucket)s --s3-base-path=%(prefix)s  put --manifest=%(manifest)s --concurrency=4"
+        upload_command = "cassandra-snapshotter-agent --aws-access-key-id=%(key)s --aws-secret-access-key=%(secret)s --s3-bucket-name=%(bucket)s --s3-base-path=%(prefix)s  put --manifest=%(manifest)s --concurrency=4 --s3-bucket-region=%(s3_bucket_region)s"
         cmd = upload_command % dict(
             bucket=snapshot.s3_bucket,
+            s3_bucket_region=self.s3_bucket_region,
             prefix=prefix,
             key=self.aws_access_key_id,
             secret=self.aws_secret_access_key,
@@ -311,7 +314,7 @@ class BackupWorker(object):
         return schema
 
     def write_on_S3(self, bucket_name, path, content):
-        conn = S3Connection(self.aws_access_key_id, self.aws_secret_access_key)
+        conn = S3Connection(self.aws_access_key_id, self.aws_secret_access_key, host=self.s3_connection_host)
         bucket = conn.get_bucket(bucket_name)
         key = bucket.new_key(path)
         key.set_contents_from_string(content)
