@@ -254,7 +254,7 @@ class BackupWorker(object):
         put(manifest.name, manifest_path)
         os.unlink(manifest.name)
 
-        upload_command = "cassandra-snapshotter-agent --aws-access-key-id=%(key)s --aws-secret-access-key=%(secret)s --s3-bucket-name=%(bucket)s --s3-base-path=%(prefix)s  put --manifest=%(manifest)s --concurrency=4 --s3-bucket-region=%(s3_bucket_region)s"
+        upload_command = "cassandra-snapshotter-agent --aws-access-key-id=%(key)s --aws-secret-access-key=%(secret)s --s3-bucket-name=%(bucket)s --s3-bucket-region=%(s3_bucket_region)s --s3-base-path=%(prefix)s  put --manifest=%(manifest)s --concurrency=4"
         cmd = upload_command % dict(
             bucket=snapshot.s3_bucket,
             s3_bucket_region=self.s3_bucket_region,
