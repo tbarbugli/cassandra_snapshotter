@@ -4,7 +4,7 @@ import logging
 from snapshotting import BackupWorker, RestoreWorker
 from snapshotting import Snapshot
 from snapshotting import SnapshotCollection
-from utils import base_parser
+from utils import base_parser, get_s3_connection_host
 
 
 def run_backup(args):
@@ -34,6 +34,8 @@ def run_backup(args):
     worker = BackupWorker(
         aws_access_key_id=args.aws_access_key_id,
         aws_secret_access_key=args.aws_secret_access_key,
+        s3_bucket_region=args.s3_bucket_region,
+        s3_connection_host=get_s3_connection_host(args.s3_bucket_region),
         cassandra_data_path=args.cassandra_data_path,
         nodetool_path=args.nodetool_path,
         cassandra_bin_dir=args.cassandra_bin_dir,
