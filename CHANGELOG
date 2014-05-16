@@ -1,3 +1,10 @@
+0.2.3
+ * fix bug with upload manifest and some weird fabric / boto version combination
+ * fix problems with non us-west S3 buckets (s3 region is now an explicit parameter)
+
+0.2.2
+ * fix bug with install requirements
+
 0.2.1
  * add support for password authentication
 
