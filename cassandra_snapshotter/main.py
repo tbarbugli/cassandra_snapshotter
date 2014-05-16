@@ -4,7 +4,9 @@ import logging
 from snapshotting import BackupWorker, RestoreWorker
 from snapshotting import Snapshot
 from snapshotting import SnapshotCollection
-from utils import base_parser, get_s3_connection_host
+from utils import add_s3_arguments
+from utils import base_parser as _base_parser
+from utils import get_s3_connection_host
 
 
 def run_backup(args):
@@ -106,7 +108,7 @@ def restore_backup(args):
 
 
 def main():
-
+    base_parser = add_s3_arguments(_base_parser)
     subparsers = base_parser.add_subparsers(title='subcommands',
                                        dest='subcommand')
 

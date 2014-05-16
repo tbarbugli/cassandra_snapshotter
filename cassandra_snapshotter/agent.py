@@ -6,6 +6,9 @@ except ImportError:
 import subprocess
 import multiprocessing
 import logging
+import os
+import glob
+from utils import add_s3_arguments
 from utils import base_parser
 from utils import map_wrap
 from utils import get_s3_connection_host
@@ -67,7 +70,8 @@ def upload_file(bucket, source, destination):
         raise
     mp.complete_upload()
 
-def put_from_manifest(s3_bucket, s3_connection_host, s3_base_path, aws_access_key_id, aws_secret_access_key, manifest, concurrency=None):
+
+def put_from_manifest(s3_bucket, s3_connection_host, s3_base_path, aws_access_key_id, aws_secret_access_key, manifest, concurrency=None, incremental_backups=False):
     '''
     uploads files listed in a manifest to amazon S3
     to support larger than 5GB files multipart upload is used (chunks of 60MB)
@@ -82,12 +86,53 @@ def put_from_manifest(s3_bucket, s3_connection_host, s3_base_path, aws_access_ke
         pass
     pool.terminate()
 
+    if incremental_backups:
+        for f in files:
+            os.remove(f)
+
+
+def create_upload_manifest(snapshot_name, snapshot_keyspaces, snapshot_table, data_path, manifest_path, incremental_backups=False):
+    if snapshot_keyspaces:
+        keyspace_globs = snapshot_keyspaces.split()
+    else:
+        keyspace_globs = ['*']
+
+    if snapshot_table:
+        table_glob = snapshot_table
+    else:
+        table_glob = '*'
+
+    files = []
+    for keyspace_glob in keyspace_globs:
+        path = [
+            data_path,
+            keyspace_glob,
+            table_glob
+        ]
+        if incremental_backups:
+            path += ['backups']
+        else:
+            path += ['snapshots', snapshot_name]
+        path += ['*']
+
+        path = os.path.join(*path)
+        glob_results = '\n'.join(glob.glob(os.path.join(path)))
+        files.extend([f.strip() for f in glob_results.split("\n")])
+
+    with open(manifest_path, 'w') as manifest:
+        manifest.write('\n'.join("%s" % f for f in files))
+
+
 def main():
     subparsers = base_parser.add_subparsers(title='subcommands',
                                        dest='subcommand')
+    base_parser.add_argument('--incremental_backups', action='store_true', default=False)
+
     put_parser = subparsers.add_parser('put', help='put files on s3 from a manifest')
+    manifest_parser = subparsers.add_parser('create-upload-manifest', help='put files on s3 from a manifest')
 
     # put arguments
+    put_parser = add_s3_arguments(put_parser)
     put_parser.add_argument('--manifest',
                            required=True,
                            help='The manifest containing the files to put on s3')
@@ -98,12 +143,28 @@ def main():
                            type=int,
                            help='Compress and upload concurrent processes')
 
+    # create-upload-manifest arguments
+    manifest_parser.add_argument('--snapshot_name', required=True, type=str)
+    manifest_parser.add_argument('--snapshot_keyspaces', default='', required=False, type=str)
+    manifest_parser.add_argument('--snapshot_table', required=False, default='', type=str)
+    manifest_parser.add_argument('--data_path', required=True, type=str)
+    manifest_parser.add_argument('--manifest_path', required=True, type=str)
+
     args = base_parser.parse_args()
     subcommand = args.subcommand
 
-    check_lzop()
+    if subcommand == 'create-upload-manifest':
+        create_upload_manifest(
+            args.snapshot_name,
+            args.snapshot_keyspaces,
+            args.snapshot_table,
+            args.data_path,
+            args.manifest_path,
+            args.incremental_backups
+        )
 
     if subcommand == 'put':
+        check_lzop()
         put_from_manifest(
             args.s3_bucket_name,
             get_s3_connection_host(args.s3_bucket_region),
@@ -111,7 +172,8 @@ def main():
             args.aws_access_key_id,
             args.aws_secret_access_key,
             args.manifest,
-            args.concurrency
+            args.concurrency,
+            args.incremental_backups
         )
 
 if __name__ == '__main__':
