@@ -33,6 +33,11 @@ def add_s3_arguments(arg_parser):
                     default='us-east-1',
                     help='S3 bucket region (default us-east-1)')
 
+    arg_parser.add_argument('--s3-ssenc',
+                            default=False,
+                            type=bool,
+                            help='Enable/disable AWS S3 server-side encryption')
+
     arg_parser.add_argument('--aws-secret-access-key',
                         required=True,
                         help='S3 secret access key.')
