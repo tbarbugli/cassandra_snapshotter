@@ -34,7 +34,7 @@ You can see the list of parameters available via `cassandra-snapshotter --help`
 
 
 ``` bash
-cassandra-snapshotter --aws-access-key-id=X --aws-secret-access-key=Y --s3-bucket-name=Z --s3-bucket-region=eu-west-1 --s3-ssenc=True --s3-base-path=mycluster backup --hosts=h1,h2,h3,h4 --user=cassandra
+cassandra-snapshotter --aws-access-key-id=X --aws-secret-access-key=Y --s3-bucket-name=Z --s3-bucket-region=eu-west-1 --s3-ssenc --s3-base-path=mycluster backup --hosts=h1,h2,h3,h4 --user=cassandra
 ```
 
 
@@ -42,12 +42,12 @@ cassandra-snapshotter --aws-access-key-id=X --aws-secret-access-key=Y --s3-bucke
 - backups up (using snapshots or incremental backups) on the S3 bucket Z
 - backups are stored in /mycluster/
 - if your bucket is in other then us-west-1 region, you should really specify the region in the command line; otherwise weird 'connection reset by peer' errors can appear as you'll be transferring files through us-west-1 over to eg. eu-west-1
-- if you wish to use AWS S3 server-side encryption specify ```--s3-ssenc=True```; otherwise you can just remove this option to NOT use server-side encryption
+- if you wish to use AWS S3 server-side encryption specify ```--s3-ssenc```
 
 ####List existing backups for *mycluster*:####
 
 ``` bash
-cassandra-snapshotter --aws-access-key-id=X --aws-secret-access-key=Y --s3-bucket-name=Z --s3-bucket-region=eu-west-1 --s3-ssenc=True --s3-base-path=mycluster list
+cassandra-snapshotter --aws-access-key-id=X --aws-secret-access-key=Y --s3-bucket-name=Z --s3-bucket-region=eu-west-1 --s3-ssenc --s3-base-path=mycluster list
 ```
 
 ###How it works###
