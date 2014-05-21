@@ -219,12 +219,13 @@ class BackupWorker(object):
     """
 
     def __init__(self, aws_secret_access_key,
-                 aws_access_key_id, s3_bucket_region, s3_connection_host, cassandra_data_path,
+                 aws_access_key_id, s3_bucket_region, s3_ssenc, s3_connection_host, cassandra_data_path,
                  nodetool_path, cassandra_bin_dir, backup_schema,
                  connection_pool_size=12):
         self.aws_secret_access_key = aws_secret_access_key
         self.aws_access_key_id = aws_access_key_id
         self.s3_bucket_region = s3_bucket_region
+        self.s3_ssenc = s3_ssenc
         self.s3_connection_host = s3_connection_host
         self.cassandra_data_path = cassandra_data_path
         self.nodetool_path = nodetool_path or "%s/nodetool" % cassandra_bin_dir
@@ -251,10 +252,11 @@ class BackupWorker(object):
         )
         sudo(cmd)
 
-        upload_command = "cassandra-snapshotter-agent %(incremental_backups)s put --aws-access-key-id=%(key)s --aws-secret-access-key=%(secret)s --s3-bucket-name=%(bucket)s --s3-bucket-region=%(s3_bucket_region)s --s3-base-path=%(prefix)s --manifest=%(manifest)s --concurrency=4"
+        upload_command = "cassandra-snapshotter-agent %(incremental_backups)s put --aws-access-key-id=%(key)s --aws-secret-access-key=%(secret)s --s3-bucket-name=%(bucket)s --s3-bucket-region=%(s3_bucket_region)s --s3-ssenc=%(s3_ssenc)s --s3-base-path=%(prefix)s --manifest=%(manifest)s --concurrency=4"
         cmd = upload_command % dict(
             bucket=snapshot.s3_bucket,
             s3_bucket_region=self.s3_bucket_region,
+            s3_ssenc=self.s3_ssenc,
             prefix=prefix,
             key=self.aws_access_key_id,
             secret=self.aws_secret_access_key,

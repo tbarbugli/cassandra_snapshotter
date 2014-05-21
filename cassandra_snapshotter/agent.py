@@ -60,8 +60,8 @@ def destination_path(s3_base_path, file_path, compressed=True):
     return '/'.join([s3_base_path, file_path + suffix])
 
 @map_wrap
-def upload_file(bucket, source, destination):
-    mp = bucket.initiate_multipart_upload(destination)
+def upload_file(bucket, source, destination, s3_ssenc):
+    mp = bucket.initiate_multipart_upload(destination, encrypt_key=s3_ssenc)
     try:
         for i, chunk in enumerate(compressed_pipe(source)):
             mp.upload_part_from_file(chunk, i+1)
@@ -71,7 +71,7 @@ def upload_file(bucket, source, destination):
     mp.complete_upload()
 
 
-def put_from_manifest(s3_bucket, s3_connection_host, s3_base_path, aws_access_key_id, aws_secret_access_key, manifest, concurrency=None, incremental_backups=False):
+def put_from_manifest(s3_bucket, s3_connection_host, s3_ssenc, s3_base_path, aws_access_key_id, aws_secret_access_key, manifest, concurrency=None, incremental_backups=False):
     '''
     uploads files listed in a manifest to amazon S3
     to support larger than 5GB files multipart upload is used (chunks of 60MB)
@@ -82,7 +82,7 @@ def put_from_manifest(s3_bucket, s3_connection_host, s3_base_path, aws_access_ke
     manifest_fp = open(manifest, 'r')
     files = manifest_fp.read().splitlines()
     pool = multiprocessing.Pool(concurrency)
-    for _ in pool.imap(upload_file, ((bucket, f, destination_path(s3_base_path, f)) for f in files)):
+    for _ in pool.imap(upload_file, ((bucket, f, destination_path(s3_base_path, f), s3_ssenc) for f in files)):
         pass
     pool.terminate()
 
@@ -168,6 +168,7 @@ def main():
         put_from_manifest(
             args.s3_bucket_name,
             get_s3_connection_host(args.s3_bucket_region),
+            args.s3_ssenc,
             args.s3_base_path,
             args.aws_access_key_id,
             args.aws_secret_access_key,
