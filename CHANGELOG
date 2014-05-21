@@ -1,3 +1,6 @@
+0.2.4
+ * add support for S3 server side encryption
+
 0.2.3
  * fix bug with upload manifest and some weird fabric / boto version combination
  * fix problems with non us-west S3 buckets (s3 region is now an explicit parameter)
