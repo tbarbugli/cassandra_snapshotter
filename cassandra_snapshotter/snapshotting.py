@@ -112,7 +112,7 @@ class RestoreWorker(object):
         if not table:
             table = ".*?"
 
-        bucket = self.s3connection.get_bucket(self.snapshot.s3_bucket)
+        bucket = self.s3connection.get_bucket(self.snapshot.s3_bucket, validate=False)
 
         matcher_string = "(%(hosts)s).*/(%(keyspace)s)/(%(table)s)/" % dict(hosts='|'.join(hosts), keyspace=keyspace, table=table)
         self.keyspace_table_matcher = re.compile(matcher_string)
@@ -310,7 +310,7 @@ class BackupWorker(object):
 
     def write_on_S3(self, bucket_name, path, content):
         conn = S3Connection(self.aws_access_key_id, self.aws_secret_access_key, host=self.s3_connection_host)
-        bucket = conn.get_bucket(bucket_name)
+        bucket = conn.get_bucket(bucket_name, validate=False)
         key = bucket.new_key(path)
         key.set_contents_from_string(content)
 
@@ -404,7 +404,7 @@ class SnapshotCollection(object):
             return
 
         conn = S3Connection(self.aws_access_key_id, self.aws_secret_access_key)
-        bucket = conn.get_bucket(self.s3_bucket)
+        bucket = conn.get_bucket(self.s3_bucket, validate=False)
         self.snapshots = []
         prefix = self.base_path
         if not self.base_path.endswith('/'):

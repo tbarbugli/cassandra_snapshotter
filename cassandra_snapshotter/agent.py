@@ -55,7 +55,7 @@ def get_bucket(s3_bucket, aws_access_key_id, aws_secret_access_key, s3_connectio
         aws_secret_access_key=aws_secret_access_key,
         host=s3_connection_host
     )
-    return connection.get_bucket(s3_bucket)
+    return connection.get_bucket(s3_bucket, validate=False)
 
 
 def destination_path(s3_base_path, file_path, compressed=True):

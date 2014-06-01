@@ -1,4 +1,7 @@
 0.2.4
+ * remove some S3 addictional charges coming from not necessary bucket validation
+
+0.2.4
  * add support for S3 server side encryption
 
 0.2.3
