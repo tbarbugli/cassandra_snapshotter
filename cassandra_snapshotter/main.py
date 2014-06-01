@@ -16,7 +16,7 @@ def run_backup(args):
     if args.password:
         env.password = args.password
 
-    env.hosts = sorted(args.hosts.split(','))
+    env.hosts = args.hosts.split(',')
 
     if args.new_snapshot:
         create_snapshot = True

@@ -3,20 +3,25 @@ try:
     from cStringIO import StringIO
 except ImportError:
     from StringIO import StringIO
-import subprocess
-import multiprocessing
-import logging
-import os
 import glob
+import logging
+import multiprocessing
+import os
+import subprocess
+import time
+from timeout import timeout
 from utils import add_s3_arguments
 from utils import base_parser
 from utils import map_wrap
 from utils import get_s3_connection_host
 
 
+DEFAULT_CONCURRENCY = max(multiprocessing.cpu_count() - 1, 1)
 BUFFER_SIZE = 62914560
 LZOP_BIN = 'lzop'
-DEFAULT_CONCURRENCY = max(multiprocessing.cpu_count() - 1, 1)
+MAX_RETRY_COUNT = 3
+SLEEP_TIME = 2
+UPLOAD_TIMEOUT = 600
 
 logger = logging.getLogger(__name__)
 
@@ -65,14 +70,47 @@ def destination_path(s3_base_path, file_path, compressed=True):
 
 @map_wrap
 def upload_file(bucket, source, destination, s3_ssenc):
-    mp = bucket.initiate_multipart_upload(destination, encrypt_key=s3_ssenc)
-    try:
-        for i, chunk in enumerate(compressed_pipe(source)):
-            mp.upload_part_from_file(chunk, i+1)
-    except:
-        mp.cancel_upload()
-        raise
-    mp.complete_upload()
+    completed = False
+    retry_count = 0
+    while not completed and retry_count < MAX_RETRY_COUNT:
+        mp = bucket.initiate_multipart_upload(destination, encrypt_key=s3_ssenc)
+        try:
+            for i, chunk in enumerate(compressed_pipe(source)):
+                mp.upload_part_from_file(chunk, i+1)
+        except Exception:
+            logger.warn("Error uploading file %s to %s. Retry count: %d" % (source, destination, retry_count))
+            cancel_upload(bucket, mp, destination)
+            retry_count = retry_count + 1
+            if retry_count >= MAX_RETRY_COUNT:
+                logger.exception("Retried too many times uploading file")
+                raise
+        mp.complete_upload()
+        completed = True
+
+
+@timeout(UPLOAD_TIMEOUT)
+def upload_chunk(mp, chunk, index):
+    mp.upload_part_from_file(chunk, index)
+
+
+def cancel_upload(bucket, mp, remote_path):
+    '''
+    safe way to cancel a multipart upload
+    sleeps SLEEP_TIME seconds and then makes sure that there are not parts left
+    in storage
+
+    '''
+    while True:
+        try:
+            time.sleep(SLEEP_TIME)
+            mp.cancel_upload()
+            time.sleep(SLEEP_TIME)
+            for mp in bucket.list_multipart_uploads():
+                if mp.key_name == remote_path:
+                    mp.cancel_upload()
+            return
+        except Exception:
+            logger.exception("Error while cancelling multipart upload")
 
 
 def put_from_manifest(s3_bucket, s3_connection_host, s3_ssenc, s3_base_path,

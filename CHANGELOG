@@ -1,3 +1,7 @@
+ * Upload retries
+ * Cleanup failed multipart uploads (remove parts from S3)
+ * Add upload timeout (fails if uploading 60MB takes more than 600s)
+
 0.2.4
  * remove some S3 addictional charges coming from not necessary bucket validation
 
