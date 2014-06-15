@@ -6,6 +6,7 @@ except ImportError:
 import glob
 import logging
 import multiprocessing
+from multiprocessing.dummy import Pool
 import os
 import subprocess
 import time
@@ -124,7 +125,7 @@ def put_from_manifest(s3_bucket, s3_connection_host, s3_ssenc, s3_base_path,
     bucket = get_bucket(s3_bucket, aws_access_key_id, aws_secret_access_key, s3_connection_host)
     manifest_fp = open(manifest, 'r')
     files = manifest_fp.read().splitlines()
-    pool = multiprocessing.Pool(concurrency)
+    pool = Pool(concurrency)
     for _ in pool.imap(upload_file, ((bucket, f, destination_path(s3_base_path, f), s3_ssenc) for f in files)):
         pass
     pool.terminate()
