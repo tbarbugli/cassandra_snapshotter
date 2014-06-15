@@ -16,6 +16,9 @@ def run_backup(args):
     if args.password:
         env.password = args.password
 
+    if args.sshport:
+        env.port = args.sshport
+
     env.hosts = args.hosts.split(',')
 
     if args.new_snapshot:
@@ -143,7 +146,10 @@ def main():
                                help='cassandra binaries directory')
 
     backup_parser.add_argument('--user',
-                               help='the ssh user to loging on nodes')
+                               help='the ssh user to logging on nodes')
+
+    backup_parser.add_argument('--sshport',
+                               help='the ssh port to use to connect to the nodes')
 
     backup_parser.add_argument('--password',
                                 default='',
