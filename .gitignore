@@ -30,3 +30,6 @@ nosetests.xml
 
 docs/_build
 *~
+
+# vim
+*.sw*
