@@ -1,4 +1,7 @@
 0.2.4
+ * add use_ssh_config
+
+0.2.4
  * add support for S3 server side encryption
 
 0.2.3
