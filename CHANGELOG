@@ -1,8 +1,10 @@
+0.3.0
  * Configurable SSH port
  * Change agent put from multiprocessing to threading
  * Upload retries
  * Cleanup failed multipart uploads (remove parts from S3)
  * Add upload timeout (fails if uploading 60MB takes more than 600s)
+ * Use ssh config
 
 0.2.5
  * remove some S3 addictional charges coming from not necessary bucket validation
