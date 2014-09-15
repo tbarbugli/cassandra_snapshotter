@@ -9,6 +9,9 @@ from utils import base_parser as _base_parser
 from utils import get_s3_connection_host
 
 
+env.use_ssh_config = True
+
+
 def run_backup(args):
     if args.user:
         env.user = args.user
