@@ -2,6 +2,7 @@ import re
 import shutil
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
+from boto.exception import S3ResponseError
 from datetime import datetime
 from fabric.api import env
 from fabric.api import execute
@@ -411,13 +412,23 @@ class SnapshotCollection(object):
             prefix = '%s/' % self.base_path
         snap_paths = [snap.name for snap in bucket.list(
             prefix=prefix, delimiter='/')]
+        # Remove the root dir from the list since it won't have a manifest file.
+        snap_paths = [x for x in snap_paths if x != prefix]
         for snap_path in snap_paths:
             mkey = Key(bucket)
             manifest_path = '/'.join([snap_path, 'manifest.json'])
             mkey.key = manifest_path
-            manifest_data = mkey.get_contents_as_string()
-            self.snapshots.append(
-                Snapshot.load_manifest_file(manifest_data, self.s3_bucket))
+            try:
+                manifest_data = mkey.get_contents_as_string()
+            except S3ResponseError as e:  # manifest.json not found.
+                logging.warn('Response: %r manifest_path: %r' % (e.message, manifest_path))
+                continue
+            try:
+                self.snapshots.append(
+                    Snapshot.load_manifest_file(manifest_data, self.s3_bucket))
+            except Exception as e:  # Invalid json format.
+                logging.error('Parsing manifest.json failed. %r', e.message)
+                continue
         self.snapshots = sorted(self.snapshots, reverse=True)
 
     def get_snapshot_by_name(self, name):
