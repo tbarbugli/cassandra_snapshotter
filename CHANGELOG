@@ -1,3 +1,6 @@
+0.3.1
+ * Fix bug with missing manifest file on S3 (--prefix)
+
 0.3.0
  * Configurable SSH port
  * Change agent put from multiprocessing to threading
