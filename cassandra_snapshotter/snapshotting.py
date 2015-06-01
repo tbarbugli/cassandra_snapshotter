@@ -242,7 +242,13 @@ class BackupWorker(object):
             '/') + [self.get_current_node_hostname()])
 
         manifest_path = '/tmp/backupmanifest'
-        manifest_command = "cassandra-snapshotter-agent %(incremental_backups)s create-upload-manifest --manifest_path=%(manifest_path)s --snapshot_name=%(snapshot_name)s --snapshot_keyspaces=%(snapshot_keyspaces)s --snapshot_table=%(snapshot_table)s --data_path=%(data_path)s"
+        manifest_command = "cassandra-snapshotter-agent \
+            %(incremental_backups)s create-upload-manifest \
+            --manifest_path=%(manifest_path)s \
+            --snapshot_name=%(snapshot_name)s \
+            --snapshot_keyspaces=%(snapshot_keyspaces)s \
+            --snapshot_table=%(snapshot_table)s \
+            --data_path=%(data_path)s"
         cmd = manifest_command % dict(
             manifest_path=manifest_path,
             snapshot_name=snapshot.name,
@@ -251,9 +257,18 @@ class BackupWorker(object):
             data_path=self.cassandra_data_path,
             incremental_backups=incremental_backups and '--incremental_backups' or ''
         )
+        print "manifest_command is {0}".format(cmd)
         sudo(cmd)
 
-        upload_command = "cassandra-snapshotter-agent %(incremental_backups)s put --aws-access-key-id=%(key)s --aws-secret-access-key=%(secret)s --s3-bucket-name=%(bucket)s --s3-bucket-region=%(s3_bucket_region)s %(s3_ssenc)s --s3-base-path=%(prefix)s --manifest=%(manifest)s --concurrency=4"
+        upload_command = "cassandra-snapshotter-agent %(incremental_backups)s \
+            put \
+            --aws-access-key-id=%(key)s \
+            --aws-secret-access-key=%(secret)s \
+            --s3-bucket-name=%(bucket)s \
+            --s3-bucket-region=%(s3_bucket_region)s %(s3_ssenc)s \
+            --s3-base-path=%(prefix)s \
+            --manifest=%(manifest)s \
+            --concurrency=4"
         cmd = upload_command % dict(
             bucket=snapshot.s3_bucket,
             s3_bucket_region=self.s3_bucket_region,
@@ -366,8 +381,9 @@ class BackupWorker(object):
             table_param=table_param
         )
 
-        with hide('running', 'stdout', 'stderr'):
-            sudo(cmd)
+        #with hide('running', 'stdout', 'stderr'):
+        #    sudo(cmd)
+        sudo(cmd)
 
     def upload_cluster_backups(self, snapshot, incremental_backups):
         logging.info('Uploading backups')

@@ -1,6 +1,6 @@
-from collections import defaultdict
-from fabric.api import env
-import logging
+from collections import defaultdict    # High performance container datatypes
+from fabric.api import env             # Fabric env dictionary
+import logging                         # Import logging API
 from snapshotting import BackupWorker, RestoreWorker
 from snapshotting import Snapshot
 from snapshotting import SnapshotCollection
