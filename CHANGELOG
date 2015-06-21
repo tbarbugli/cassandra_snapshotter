@@ -1,3 +1,8 @@
+0.4.0 (not released yet)
+ * Added support for cassandra mutilple data directory
+ * Removed --data-path cmdline option
+ * Added --conf-path cmdline option (tells where cassandra.yml is located)
+
 0.3.1
  * Fix bug with missing manifest file on S3 (--prefix)
 
