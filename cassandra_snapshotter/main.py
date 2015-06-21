@@ -45,7 +45,7 @@ def run_backup(args):
         s3_bucket_region=args.s3_bucket_region,
         s3_ssenc=args.s3_ssenc,
         s3_connection_host=get_s3_connection_host(args.s3_bucket_region),
-        cassandra_data_path=args.cassandra_data_path,
+        cassandra_conf_path=args.cassandra_conf_path,
         nodetool_path=args.nodetool_path,
         cassandra_bin_dir=args.cassandra_bin_dir,
         backup_schema=args.backup_schema,
@@ -136,9 +136,9 @@ def main():
                                default='',
                                help='The table (column family) to backup')
 
-    backup_parser.add_argument('--cassandra-data-path',
-                               default='/var/lib/cassandra/data/',
-                               help='cassandra data path.')
+    backup_parser.add_argument('--cassandra-conf-path',
+                               default='/etc/cassandra/conf/',
+                               help='cassandra config file path.')
 
     backup_parser.add_argument('--nodetool-path',
                                default=None,

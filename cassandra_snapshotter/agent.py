@@ -3,6 +3,12 @@ try:
     from cStringIO import StringIO
 except ImportError:
     from StringIO import StringIO
+from yaml import load
+try:
+    # LibYAML based parser and emitter
+    from yaml import CLoader as Loader
+except ImportError:
+    from yaml import Loader
 import glob
 import logging
 import multiprocessing
@@ -135,7 +141,18 @@ def put_from_manifest(s3_bucket, s3_connection_host, s3_ssenc, s3_base_path,
             os.remove(f)
 
 
-def create_upload_manifest(snapshot_name, snapshot_keyspaces, snapshot_table, data_path, manifest_path, incremental_backups=False):
+def get_data_path(conf_path):
+    '''
+    Retrieve cassandra data_file_directories from cassandra.yaml
+    '''
+    config_file_path = os.path.join(conf_path,'cassandra.yaml')
+    cassandra_configs = {}
+    with open(config_file_path, 'r') as f:
+        cassandra_configs = load(f, Loader=Loader)
+    data_paths = cassandra_configs['data_file_directories']
+    return data_paths
+
+def create_upload_manifest(snapshot_name, snapshot_keyspaces, snapshot_table, conf_path, manifest_path, incremental_backups=False):
     if snapshot_keyspaces:
         keyspace_globs = snapshot_keyspaces.split()
     else:
@@ -146,22 +163,24 @@ def create_upload_manifest(snapshot_name, snapshot_keyspaces, snapshot_table, da
     else:
         table_glob = '*'
 
+    data_paths = get_data_path(conf_path)
     files = []
-    for keyspace_glob in keyspace_globs:
-        path = [
-            data_path,
-            keyspace_glob,
-            table_glob
-        ]
-        if incremental_backups:
-            path += ['backups']
-        else:
-            path += ['snapshots', snapshot_name]
-        path += ['*']
+    for data_path in data_paths:
+        for keyspace_glob in keyspace_globs:
+            path = [
+                data_path,
+                keyspace_glob,
+                table_glob
+            ]
+            if incremental_backups:
+                path += ['backups']
+            else:
+                path += ['snapshots', snapshot_name]
+            path += ['*']
 
-        path = os.path.join(*path)
-        glob_results = '\n'.join(glob.glob(os.path.join(path)))
-        files.extend([f.strip() for f in glob_results.split("\n")])
+            path = os.path.join(*path)
+            glob_results = '\n'.join(glob.glob(os.path.join(path)))
+            files.extend([f.strip() for f in glob_results.split("\n")])
 
     with open(manifest_path, 'w') as manifest:
         manifest.write('\n'.join("%s" % f for f in files))
@@ -191,7 +210,7 @@ def main():
     manifest_parser.add_argument('--snapshot_name', required=True, type=str)
     manifest_parser.add_argument('--snapshot_keyspaces', default='', required=False, type=str)
     manifest_parser.add_argument('--snapshot_table', required=False, default='', type=str)
-    manifest_parser.add_argument('--data_path', required=True, type=str)
+    manifest_parser.add_argument('--conf_path', required=True, type=str)
     manifest_parser.add_argument('--manifest_path', required=True, type=str)
 
     args = base_parser.parse_args()
@@ -202,7 +221,7 @@ def main():
             args.snapshot_name,
             args.snapshot_keyspaces,
             args.snapshot_table,
-            args.data_path,
+            args.conf_path,
             args.manifest_path,
             args.incremental_backups
         )
