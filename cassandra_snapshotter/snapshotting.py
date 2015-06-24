@@ -4,7 +4,7 @@ from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 from boto.exception import S3ResponseError
 from datetime import datetime
-from fabric.api import (env, execute, hide, sudo)
+from fabric.api import (env, execute, hide, run, sudo)
 from fabric.context_managers import settings
 from multiprocessing.dummy import Pool
 import json
