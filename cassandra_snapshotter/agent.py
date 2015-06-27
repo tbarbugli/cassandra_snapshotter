@@ -12,14 +12,14 @@ try:
     from yaml import CLoader as Loader
 except ImportError:
     from yaml import Loader
+import os
+import time
 import glob
 import logging
+import subprocess
 import multiprocessing
 from multiprocessing.dummy import Pool
-import os
-import subprocess
-import time
-from timeout import timeout
+from .timeout import timeout
 
 # From package
 from utils import (add_s3_arguments, base_parser,\

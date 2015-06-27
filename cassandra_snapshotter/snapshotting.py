@@ -242,12 +242,16 @@ class BackupWorker(object):
         self.s3_ssenc = s3_ssenc
         self.s3_connection_host = s3_connection_host
         self.cassandra_conf_path = cassandra_conf_path
-        self.nodetool_path = nodetool_path or "{!s}/nodetool".format(cassandra_bin_dir)
+        self.nodetool_path = nodetool_path or \
+            "{!s}/nodetool".format(cassandra_bin_dir)
         self.cassandra_cli_path = "{!s}/cassandra-cli".format(cassandra_bin_dir)
         self.backup_schema = backup_schema
         self.connection_pool_size = connection_pool_size
-        self.use_sudo = bool(strtobool(use_sudo)) if isinstance(use_sudo, basestring) else use_sudo
         self.buffer_size = buffer_size
+        if isinstance(use_sudo, basestring):
+            self.use_sudo = bool(strtobool(use_sudo))
+        else:
+            use_sudo
 
     def get_current_node_hostname(self):
         return env.host_string
@@ -270,7 +274,8 @@ class BackupWorker(object):
             snapshot_keyspaces=snapshot.keyspaces,
             snapshot_table=snapshot.table,
             conf_path=self.cassandra_conf_path,
-            incremental_backups=incremental_backups and '--incremental_backups' or ''
+            incremental_backups=incremental_backups and\
+                '--incremental_backups' or ''
         )
         if self.use_sudo:
             sudo(cmd)
@@ -296,7 +301,8 @@ class BackupWorker(object):
             secret=self.aws_secret_access_key,
             manifest=manifest_path,
             bufsize=self.buffer_size,
-            incremental_backups=incremental_backups and '--incremental_backups' or ''
+            incremental_backups=incremental_backups and\
+                '--incremental_backups' or ''
         )
         if self.use_sudo:
             sudo(cmd)
@@ -340,18 +346,24 @@ class BackupWorker(object):
         output = ""
         with settings(host_string=env.hosts[0]):
             with hide('output'):
-                cmd = "echo -e 'show schema;\n' | {!s}".format(self.cassandra_cli_path)
+                cmd = "echo -e 'show schema;\n' | {!s}".format(
+                    self.cassandra_cli_path)
                 if keyspace:
-                    cmd = "echo -e 'show schema;\n' | {!s} -k {!s}".format(self.cassandra_cli_path, keyspace)
+                    cmd = "echo -e 'show schema;\n' | {!s} -k {!s}".format(
+                        self.cassandra_cli_path, keyspace)
                 if self.use_sudo:
                     output = sudo(cmd)
                 else:
                     output = run(cmd)
-        schema = '\n'.join([l for l in output.split("\n") if re.match(r'(create|use| )',l)])
+        schema = '\n'.join([l for l in output.split("\n") if re.match(
+            r'(create|use| )', l)])
         return schema
 
     def write_on_S3(self, bucket_name, path, content):
-        conn = S3Connection(self.aws_access_key_id, self.aws_secret_access_key, host=self.s3_connection_host)
+        conn = S3Connection(
+            self.aws_access_key_id,
+            self.aws_secret_access_key,
+            host=self.s3_connection_host)
         bucket = conn.get_bucket(bucket_name, validate=False)
         key = bucket.new_key(path)
         key.set_contents_from_string(content)
@@ -367,7 +379,8 @@ class BackupWorker(object):
             for ks in snapshot.keyspaces.split(','):
                 logging.info("Writing schema for keyspace {!s}".format(ks))
                 content = self.get_keyspace_schema(ks)
-                schema_path = '/'.join([snapshot.base_path, "schema_{!s}.cdl".format(ks)])
+                schema_path = '/'.join(
+                    [snapshot.base_path, "schema_{!s}.cdl".format(ks)])
                 self.write_on_S3(snapshot.s3_bucket, schema_path, content)
         else:
             logging.info("Writing schema for all keyspaces")
@@ -396,7 +409,8 @@ class BackupWorker(object):
         if incremental_backups:
             backup_command = "%(nodetool)s flush %(keyspaces)s %(table_param)s"
         else:
-            backup_command = "%(nodetool)s snapshot -t %(snapshot)s %(keyspaces)s %(table_param)s"
+            backup_command = "%(nodetool)s snapshot -t %(snapshot)s \
+                %(keyspaces)s %(table_param)s"
 
         cmd = backup_command % dict(
             nodetool=self.nodetool_path,
@@ -436,7 +450,9 @@ class BackupWorker(object):
 
 class SnapshotCollection(object):
 
-    def __init__(self, aws_access_key_id, aws_secret_access_key, base_path, s3_bucket):
+    def __init__(
+            self, aws_access_key_id,
+            aws_secret_access_key, base_path, s3_bucket):
         self.s3_bucket = s3_bucket
         self.base_path = base_path
         self.snapshots = None
@@ -464,13 +480,15 @@ class SnapshotCollection(object):
             try:
                 manifest_data = mkey.get_contents_as_string()
             except S3ResponseError as e:  # manifest.json not found.
-                logging.warn("Response: {!r} manifest_path: {!r}".format(e.message, manifest_path))
+                logging.warn("Response: {!r} manifest_path: {!r}".format(
+                    e.message, manifest_path))
                 continue
             try:
                 self.snapshots.append(
                     Snapshot.load_manifest_file(manifest_data, self.s3_bucket))
             except Exception as e:  # Invalid json format.
-                logging.error("Parsing manifest.json failed. {!r}".format(e.message))
+                logging.error("Parsing manifest.json failed. {!r}".format(
+                    e.message))
                 continue
         self.snapshots = sorted(self.snapshots, reverse=True)
 
