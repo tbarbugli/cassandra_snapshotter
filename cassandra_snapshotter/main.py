@@ -126,15 +126,15 @@ def main():
         title='subcommands', dest='subcommand'
     )
 
-    subparsers.add_parser('list', help="list existing backups")
+    subparsers.add_parser('list', help="List existing backups")
 
-    backup_parser = subparsers.add_parser('backup', help="create a snapshot")
+    backup_parser = subparsers.add_parser('backup', help="Create a snapshot")
 
     # snapshot / backup arguments
     backup_parser.add_argument(
         '--buffer-size',
         default=64,
-        help="The default buffer size (MB) for compress and upload")
+        help="The buffer size (MB) for compress and upload")
 
     backup_parser.add_argument(
         '--hosts',
@@ -168,26 +168,26 @@ def main():
 
     backup_parser.add_argument(
         '--user',
-        help="the ssh user to logging on nodes")
+        help="The ssh user to logging on nodes")
 
     backup_parser.add_argument(
         '--use-sudo',
         default=False,
-        help="use sudo to run backup")
+        help="Use sudo to run backup")
 
     backup_parser.add_argument(
         '--sshport',
-        help="the ssh port to use to connect to the nodes")
+        help="The ssh port to use to connect to the nodes")
 
     backup_parser.add_argument(
         '--password',
         default='',
-        help="user password to connect with hosts")
+        help="User password to connect with hosts")
 
     backup_parser.add_argument(
         '--new-snapshot',
         action='store_true',
-        help="create a new snapshotr")
+        help="Create a new snapshot")
 
     backup_parser.add_argument(
         '--backup-schema',
@@ -201,7 +201,7 @@ def main():
 
     # restore snapshot arguments
     restore_parser = subparsers.add_parser(
-        'restore', help="restores a snapshot")
+        'restore', help="Restores a snapshot")
 
     restore_parser.add_argument(
         '--snapshot-name',

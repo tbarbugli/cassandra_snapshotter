@@ -1,7 +1,13 @@
 from __future__ import (absolute_import, print_function)
 
+# From system
+import os
 import re
+import sys
+import time
+import json
 import shutil
+import logging
 from distutils.util import strtobool
 from boto.s3.connection import S3Connection
 from boto.s3.key import Key
@@ -10,11 +16,7 @@ from datetime import datetime
 from fabric.api import (env, execute, hide, run, settings, sudo)
 from fabric.context_managers import settings
 from multiprocessing.dummy import Pool
-import json
-import logging
-import os
-import time
-import sys
+
 
 class Snapshot(object):
     """
