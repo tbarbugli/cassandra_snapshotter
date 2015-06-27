@@ -174,7 +174,7 @@ class RestoreWorker(object):
         for size in thread_pool.imap(self._download_key, keys):
             old_width = len(progress_string)
             read_bytes += size
-            progress_string = "{!s} / {!s} ({:.2f%})".format(
+            progress_string = "{!s} / {!s} ({:.2f})".format(
                 self._human_size(read_bytes),
                 self._human_size(total_size),
                 (read_bytes/float(total_size))*100.0)
