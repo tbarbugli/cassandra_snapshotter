@@ -1,4 +1,6 @@
 0.4.0 (not released yet)
+ * Use sudo on cassandra nodes only if --use-sudo option is provided
+ * Adjust buffer size for S3 uploads (match with compressed fragments)
  * Added support for cassandra mutilple data directory
  * Removed --data-path cmdline option
  * Added --conf-path cmdline option (tells where cassandra.yml is located)
