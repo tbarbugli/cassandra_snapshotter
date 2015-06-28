@@ -6,13 +6,14 @@ from fabric.api import env
 import logging
 
 # From package
-from .snapshotting import (BackupWorker, RestoreWorker, \
-    Snapshot, SnapshotCollection)
+from .snapshotting import (BackupWorker, RestoreWorker,
+                           Snapshot, SnapshotCollection)
 from .utils import (add_s3_arguments, get_s3_connection_host)
 from .utils import base_parser as _base_parser
 
 
 env.use_ssh_config = True
+
 
 def run_backup(args):
     if args.user:

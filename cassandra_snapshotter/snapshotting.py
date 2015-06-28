@@ -137,13 +137,11 @@ class RestoreWorker(object):
         total_size = reduce(lambda s, k: s + k.size, keys, 0)
 
         logging.info("Found %(files_count)d files, with total size \
-            of %(size)s." % dict(
-                files_count=len(keys),
-                size=self._human_size(total_size)))
+            of %(size)s." % dict(files_count=len(keys),
+                                 size=self._human_size(total_size)))
         print("Found %(files_count)d files, with total size \
-            of %(size)s." % dict(
-                files_count=len(keys),
-                size=self._human_size(total_size)))
+            of %(size)s." % dict(files_count=len(keys),
+                                 size=self._human_size(total_size)))
 
         self._download_keys(keys, total_size)
 
@@ -177,11 +175,11 @@ class RestoreWorker(object):
             progress_string = "{!s} / {!s} ({:.2f})".format(
                 self._human_size(read_bytes),
                 self._human_size(total_size),
-                (read_bytes/float(total_size))*100.0)
+                (read_bytes / float(total_size)) * 100.0)
             width = len(progress_string)
             padding = ""
             if width < old_width:
-                padding = " "*(width-old_width)
+                padding = " " * (width - old_width)
             progress_string = "{!s}{!s}\r".format(progress_string, padding)
 
             sys.stderr.write(progress_string)
@@ -206,9 +204,8 @@ class RestoreWorker(object):
         # TODO: get path to sstableloader
         for table in tables:
             command = 'sstableloader --nodes %(hosts)s -v \
-                %(keyspace)s/%(table)s' % dict(
-                    hosts=','.join(target_hosts),
-                    keyspace=keyspace, table=table)
+                %(keyspace)s/%(table)s' % dict(hosts=','.join(target_hosts),
+                                               keyspace=keyspace, table=table)
             logging.info("invoking: {!s}".format(command))
 
             os.system(command)
@@ -276,8 +273,8 @@ class BackupWorker(object):
             snapshot_keyspaces=snapshot.keyspaces,
             snapshot_table=snapshot.table,
             conf_path=self.cassandra_conf_path,
-            incremental_backups=incremental_backups and\
-                '--incremental_backups' or ''
+            incremental_backups=incremental_backups and
+            '--incremental_backups' or ''
         )
         if self.use_sudo:
             sudo(cmd)
@@ -303,8 +300,8 @@ class BackupWorker(object):
             secret=self.aws_secret_access_key,
             manifest=manifest_path,
             bufsize=self.buffer_size,
-            incremental_backups=incremental_backups and\
-                '--incremental_backups' or ''
+            incremental_backups=incremental_backups and
+            '--incremental_backups' or ''
         )
         if self.use_sudo:
             sudo(cmd)

@@ -22,13 +22,13 @@ from multiprocessing.dummy import Pool
 
 # From package
 from .timeout import timeout
-from .utils import (add_s3_arguments, base_parser,\
-    map_wrap, get_s3_connection_host)
+from .utils import (add_s3_arguments, base_parser,
+                    map_wrap, get_s3_connection_host)
 
 
 DEFAULT_CONCURRENCY = max(multiprocessing.cpu_count() - 1, 1)
 BUFFER_SIZE = 64         # Default bufsize is 64M
-MBFACTOR = float(1<<20)
+MBFACTOR = float(1 << 20)
 LZOP_BIN = 'lzop'
 MAX_RETRY_COUNT = 3
 SLEEP_TIME = 2
@@ -89,7 +89,7 @@ def upload_file(bucket, source, destination, s3_ssenc, bufsize):
         mp = bucket.initiate_multipart_upload(destination, encrypt_key=s3_ssenc)
         try:
             for i, chunk in enumerate(compressed_pipe(source, bufsize)):
-                mp.upload_part_from_file(chunk, i+1)
+                mp.upload_part_from_file(chunk, i + 1)
         except Exception:
             logger.warn("Error uploading file {!s} to {!s}.\
                 Retry count: {}".format(source, destination, retry_count))
@@ -159,6 +159,7 @@ def get_data_path(conf_path):
         cassandra_configs = load(f, Loader=Loader)
     data_paths = cassandra_configs['data_file_directories']
     return data_paths
+
 
 def create_upload_manifest(
         snapshot_name, snapshot_keyspaces, snapshot_table,
