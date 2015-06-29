@@ -6,6 +6,8 @@ A tool to backup cassandra nodes using snapshots and incremental backups on S3
 The scope of this project is to make it easier to backup a cluster to S3 and to combine
 snapshots and incremental backups.
 
+[![Build Status](https://travis-ci.org/tbarbugli/cassandra_snapshotter.svg?branch=master)](https://travis-ci.org/tbarbugli/cassandra_snapshotter) [![PyPI version](https://badge.fury.io/py/cassandra-snapshotter.svg)](http://badge.fury.io/py/cassandra-snapshotter)
+
 How to install
 --------------
 
