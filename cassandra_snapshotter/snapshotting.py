@@ -253,7 +253,7 @@ class BackupWorker(object):
         if isinstance(use_sudo, basestring):
             self.use_sudo = bool(strtobool(use_sudo))
         else:
-            use_sudo
+            self.use_sudo = use_sudo
 
     def get_current_node_hostname(self):
         return env.host_string
