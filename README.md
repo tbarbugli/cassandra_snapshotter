@@ -36,7 +36,10 @@ You can see the list of parameters available via `cassandra-snapshotter --help`
 
 
 ``` bash
-cassandra-snapshotter --aws-access-key-id=X --aws-secret-access-key=Y --s3-bucket-name=Z --s3-bucket-region=eu-west-1 --s3-ssenc --s3-base-path=mycluster backup --hosts=h1,h2,h3,h4 --user=cassandra
+cassandra-snapshotter --aws-access-key-id=X --aws-secret-access-key=Y \
+	--s3-bucket-name=Z --s3-bucket-region=eu-west-1 --s3-ssenc \
+	--s3-base-path=mycluster backup --hosts=h1,h2,h3,h4 \
+	--user=cassandra
 ```
 
 
@@ -49,7 +52,9 @@ cassandra-snapshotter --aws-access-key-id=X --aws-secret-access-key=Y --s3-bucke
 ####List existing backups for *mycluster*:####
 
 ``` bash
-cassandra-snapshotter --aws-access-key-id=X --aws-secret-access-key=Y --s3-bucket-name=Z --s3-bucket-region=eu-west-1 --s3-ssenc --s3-base-path=mycluster list
+cassandra-snapshotter --aws-access-key-id=X --aws-secret-access-key=Y \
+	--s3-bucket-name=Z --s3-bucket-region=eu-west-1 \
+	--s3-ssenc --s3-base-path=mycluster list
 ```
 
 ###How it works###
