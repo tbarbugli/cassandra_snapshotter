@@ -134,11 +134,8 @@ class RestoreWorker(object):
             tables.add(r.group(3))
             keys.append(k)
 
-
-        keyspace_path = '/'.join([self.cassandra_data_dir, 'data', keyspace])
-
+        keyspace_path = "/".join([self.cassandra_data_dir, "data", keyspace])
         self._delete_old_dir_and_create_new(keyspace_path, tables)
-
         total_size = reduce(lambda s, k: s + k.size, keys, 0)
 
         logging.info("Found %(files_count)d files, with total size \
@@ -213,7 +210,7 @@ class RestoreWorker(object):
                 os.makedirs(path)
             command = '%(sstableloader)s --nodes %(hosts)s -v \
                 %(keyspace_path)s/%(table)s' % dict(sstableloader=sstableloader, hosts=','.join(target_hosts),
-                                               keyspace_path=keyspace_path, table=table)
+                                                    keyspace_path=keyspace_path, table=table)
             logging.info("invoking: {!s}".format(command))
             os.system(command)
 
