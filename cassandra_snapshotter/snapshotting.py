@@ -243,7 +243,7 @@ class BackupWorker(object):
         self.cassandra_conf_path = cassandra_conf_path
         self.nodetool_path = nodetool_path or \
             "{!s}/nodetool".format(cassandra_bin_dir)
-        self.cassandra_cli_path = "{!s}/cassandra-cli".format(cassandra_bin_dir)
+        self.cqlsh_path = "{!s}/cqlsh".format(cassandra_bin_dir)
         self.backup_schema = backup_schema
         self.connection_pool_size = connection_pool_size
         self.buffer_size = buffer_size
@@ -342,21 +342,17 @@ class BackupWorker(object):
         return ring_description
 
     def get_keyspace_schema(self, keyspace=None):
-        output = ""
         with settings(host_string=env.hosts[0]):
             with hide('output'):
-                cmd = "echo -e 'show schema;\n' | {!s}".format(
-                    self.cassandra_cli_path)
+                cmd = "{!s} -e 'DESCRIBE SCHEMA;'".format(self.cqlsh_path)
                 if keyspace:
-                    cmd = "echo -e 'show schema;\n' | {!s} -k {!s}".format(
-                        self.cassandra_cli_path, keyspace)
+                    cmd = "{!s} -e 'DESCRIBE SCHEMA;' -k {!s}".format(
+                        self.cqlsh_path, keyspace)
                 if self.use_sudo:
                     output = sudo(cmd)
                 else:
                     output = run(cmd)
-        schema = '\n'.join([l for l in output.split("\n") if re.match(
-            r'(create|use| )', l)])
-        return schema
+        return output
 
     def write_on_S3(self, bucket_name, path, content):
         conn = S3Connection(
