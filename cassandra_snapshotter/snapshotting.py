@@ -13,7 +13,7 @@ from boto.s3.connection import S3Connection
 from boto.s3.key import Key
 from boto.exception import S3ResponseError
 from datetime import datetime
-from fabric.api import (env, execute, hide, run, settings, sudo)
+from fabric.api import (env, execute, hide, run, sudo)
 from fabric.context_managers import settings
 from multiprocessing.dummy import Pool
 
@@ -260,13 +260,13 @@ class BackupWorker(object):
             '/') + [self.get_current_node_hostname()])
 
         manifest_path = '/tmp/backupmanifest'
-        manifest_command = "cassandra-snapshotter-agent \
-            %(incremental_backups)s create-upload-manifest \
-            --manifest_path=%(manifest_path)s \
-            --snapshot_name=%(snapshot_name)s \
-            --snapshot_keyspaces=%(snapshot_keyspaces)s \
-            --snapshot_table=%(snapshot_table)s \
-            --conf_path=%(conf_path)s"
+        manifest_command = "cassandra-snapshotter-agent " \
+                           "%(incremental_backups)s create-upload-manifest " \
+                           "--manifest_path=%(manifest_path)s " \
+                           "--snapshot_name=%(snapshot_name)s " \
+                           "--snapshot_keyspaces=%(snapshot_keyspaces)s " \
+                           "--snapshot_table=%(snapshot_table)s " \
+                           "--conf_path=%(conf_path)s"
         cmd = manifest_command % dict(
             manifest_path=manifest_path,
             snapshot_name=snapshot.name,
@@ -281,16 +281,19 @@ class BackupWorker(object):
         else:
             run(cmd)
 
-        upload_command = "cassandra-snapshotter-agent %(incremental_backups)s \
-            put \
-            --aws-access-key-id=%(key)s \
-            --aws-secret-access-key=%(secret)s \
-            --s3-bucket-name=%(bucket)s \
-            --s3-bucket-region=%(s3_bucket_region)s %(s3_ssenc)s \
-            --s3-base-path=%(prefix)s \
-            --manifest=%(manifest)s \
-            --bufsize=%(bufsize)s \
-            --concurrency=4"
+        upload_command = "cassandra-snapshotter-agent %(incremental_backups)s " \
+                         "put " \
+                         "--s3-bucket-name=%(bucket)s " \
+                         "--s3-bucket-region=%(s3_bucket_region)s %(s3_ssenc)s " \
+                         "--s3-base-path=%(prefix)s " \
+                         "--manifest=%(manifest)s " \
+                         "--bufsize=%(bufsize)s " \
+                         "--concurrency=4"
+
+        if self.aws_access_key_id and self.aws_secret_access_key:
+            upload_command += " --aws-access-key-id=%(key)s " \
+                              "--aws-secret-access-key=%(secret)s"
+
         cmd = upload_command % dict(
             bucket=snapshot.s3_bucket,
             s3_bucket_region=self.s3_bucket_region,
