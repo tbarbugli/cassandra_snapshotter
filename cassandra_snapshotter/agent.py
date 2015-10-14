@@ -1,6 +1,6 @@
 from __future__ import (absolute_import, print_function)
 
-# From system
+import boto
 from boto.s3.connection import S3Connection
 try:
     from cStringIO import StringIO
@@ -20,9 +20,9 @@ import subprocess
 import multiprocessing
 from multiprocessing.dummy import Pool
 
-# From package
-from .timeout import timeout
-from .utils import (add_s3_arguments, base_parser,
+from cassandra_snapshotter import logging_helper
+from cassandra_snapshotter.timeout import timeout
+from cassandra_snapshotter.utils import (add_s3_arguments, base_parser,
                     map_wrap, get_s3_connection_host)
 
 
@@ -34,7 +34,12 @@ MAX_RETRY_COUNT = 3
 SLEEP_TIME = 2
 UPLOAD_TIMEOUT = 600
 
-logger = logging.getLogger(__name__)
+
+logging_helper.configure(
+    format='%(name)-12s %(levelname)-8s %(message)s')
+
+logger = logging_helper.CassandraSnapshotterLogger('cassandra_snapshotter.agent')
+boto.set_stream_logger('boto', logging.WARNING)
 
 
 def check_lzop():
@@ -81,25 +86,32 @@ def destination_path(s3_base_path, file_path, compressed=True):
     return '/'.join([s3_base_path, file_path + suffix])
 
 
+def s3_progress_update_callback(*args):
+    # TODO: use this to display some nice progress bar
+    pass
+
+
 @map_wrap
 def upload_file(bucket, source, destination, s3_ssenc, bufsize):
-    completed = False
     retry_count = 0
-    while not completed and retry_count < MAX_RETRY_COUNT:
+    while True:
         mp = bucket.initiate_multipart_upload(destination, encrypt_key=s3_ssenc)
         try:
             for i, chunk in enumerate(compressed_pipe(source, bufsize)):
-                mp.upload_part_from_file(chunk, i + 1)
+                mp.upload_part_from_file(chunk, i + 1, cb=s3_progress_update_callback)
         except Exception:
-            logger.warn("Error uploading file {!s} to {!s}.\
+            logger.error("Error uploading file {!s} to {!s}.\
                 Retry count: {}".format(source, destination, retry_count))
-            cancel_upload(bucket, mp, destination)
-            retry_count = retry_count + 1
             if retry_count >= MAX_RETRY_COUNT:
-                logger.exception("Retried too many times uploading file")
-                raise
-        mp.complete_upload()
-        completed = True
+                logger.error("Retried too many times uploading file {!s}".format(source))
+                cancel_upload(bucket, mp, destination)
+                return False
+            else:
+                time.sleep(SLEEP_TIME)
+                retry_count = retry_count + 1
+        else:
+            mp.complete_upload()
+            return True
 
 
 @timeout(UPLOAD_TIMEOUT)
@@ -123,7 +135,7 @@ def cancel_upload(bucket, mp, remote_path):
                     mp.cancel_upload()
             return
         except Exception:
-            logger.exception("Error while cancelling multipart upload")
+            logger.error("Error while cancelling multipart upload")
 
 
 def put_from_manifest(
@@ -135,6 +147,7 @@ def put_from_manifest(
     to support larger than 5GB files multipart upload is used (chunks of 60MB)
     files are uploaded compressed with lzop, the .lzo suffix is appended
     """
+    exit_code = 0
     bucket = get_bucket(
         s3_bucket, aws_access_key_id,
         aws_secret_access_key, s3_connection_host)
@@ -142,13 +155,15 @@ def put_from_manifest(
     buffer_size = int(bufsize * MBFACTOR)
     files = manifest_fp.read().splitlines()
     pool = Pool(concurrency)
-    for _ in pool.imap(upload_file, ((bucket, f, destination_path(s3_base_path, f), s3_ssenc, buffer_size) for f in files)):
-        pass
+    for ret in pool.imap(upload_file, ((bucket, f, destination_path(s3_base_path, f), s3_ssenc, buffer_size) for f in files)):
+        if not ret:
+            exit_code = 1
+            break
     pool.terminate()
-
     if incremental_backups:
         for f in files:
             os.remove(f)
+    exit(exit_code)
 
 
 def get_data_path(conf_path):
@@ -267,4 +282,5 @@ def main():
         )
 
 if __name__ == '__main__':
-    main()
+    # TODO: if lzop is not available we should fail or run without it
+    check_lzop()
