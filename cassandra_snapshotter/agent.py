@@ -95,13 +95,19 @@ def s3_progress_update_callback(*args):
 def upload_file(bucket, source, destination, s3_ssenc, bufsize):
     retry_count = 0
     while True:
-        mp = bucket.initiate_multipart_upload(destination, encrypt_key=s3_ssenc)
+        try:
+            mp = bucket.initiate_multipart_upload(destination, encrypt_key=s3_ssenc)
+        except Exception as exc:
+            logger.error("Error initiating multipart upload for file {!s} to {!s}".format(source, destination))
+            logger.error(exc.message)
+            return False
         try:
             for i, chunk in enumerate(compressed_pipe(source, bufsize)):
                 mp.upload_part_from_file(chunk, i + 1, cb=s3_progress_update_callback)
-        except Exception:
+        except Exception as exc:
             logger.error("Error uploading file {!s} to {!s}.\
                 Retry count: {}".format(source, destination, retry_count))
+            logger.error(exc.message)
             if retry_count >= MAX_RETRY_COUNT:
                 logger.error("Retried too many times uploading file {!s}".format(source))
                 cancel_upload(bucket, mp, destination)
@@ -110,8 +116,15 @@ def upload_file(bucket, source, destination, s3_ssenc, bufsize):
                 time.sleep(SLEEP_TIME)
                 retry_count = retry_count + 1
         else:
-            mp.complete_upload()
-            return True
+            try:
+                mp.complete_upload()
+            except Exception as exc:
+                logger.error("Error completing multipart upload for file {!s} to {!s}".format(source, destination))
+                logger.error(exc.message)
+                cancel_upload(bucket, mp, destination)
+                return False
+            else:
+                return True
 
 
 @timeout(UPLOAD_TIMEOUT)
