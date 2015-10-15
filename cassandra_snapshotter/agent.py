@@ -97,8 +97,9 @@ def upload_file(bucket, source, destination, s3_ssenc, bufsize):
     while True:
         try:
             mp = bucket.initiate_multipart_upload(destination, encrypt_key=s3_ssenc)
+            logger.info("Initialized multipart upload for file {!s} to {!s}".format(source, destination))
         except Exception as exc:
-            logger.error("Error initiating multipart upload for file {!s} to {!s}".format(source, destination))
+            logger.error("Error while initializing multipart upload for file {!s} to {!s}".format(source, destination))
             logger.error(exc.message)
             return False
         try:
@@ -121,6 +122,7 @@ def upload_file(bucket, source, destination, s3_ssenc, bufsize):
             except Exception as exc:
                 logger.error("Error completing multipart upload for file {!s} to {!s}".format(source, destination))
                 logger.error(exc.message)
+                logger.error(mp.to_xml())
                 cancel_upload(bucket, mp, destination)
                 return False
             else:
@@ -138,7 +140,8 @@ def cancel_upload(bucket, mp, remote_path):
     sleeps SLEEP_TIME seconds and then makes sure that there are not parts left
     in storage
     """
-    while True:
+    attempts = 0 
+    while attempts < 5:
         try:
             time.sleep(SLEEP_TIME)
             mp.cancel_upload()
@@ -149,6 +152,7 @@ def cancel_upload(bucket, mp, remote_path):
             return
         except Exception:
             logger.error("Error while cancelling multipart upload")
+            attempts += 1
 
 
 def put_from_manifest(
