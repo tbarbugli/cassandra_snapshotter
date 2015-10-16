@@ -1,5 +1,12 @@
+try:
+    from cStringIO import StringIO
+except ImportError:
+    from StringIO import StringIO
 import argparse
 import functools
+import subprocess
+
+LZOP_BIN = 'lzop'
 
 S3_CONNECTION_HOSTS = {
     'us-east-1': 's3.amazonaws.com',
@@ -64,3 +71,39 @@ def map_wrap(f):
     def wrapper(*args, **kwargs):
         return apply(f, *args, **kwargs)
     return wrapper
+
+
+def check_lzop():
+    try:
+        subprocess.call([LZOP_BIN, '--version'])
+    except OSError:
+        print("{!s} not found on path".format(LZOP_BIN))
+
+
+def compressed_pipe(path, size):
+    """
+    Returns a generator that yields compressed chunks of
+    the given file_path
+
+    compression is done with lzop
+
+    """
+    lzop = subprocess.Popen(
+        (LZOP_BIN, '--stdout', path),
+        bufsize=size,
+        stdout=subprocess.PIPE
+    )
+
+    while True:
+        chunk = lzop.stdout.read(size)
+        if not chunk:
+            break
+        yield StringIO(chunk)
+
+
+def decompression_pipe(path):
+    lzop = subprocess.Popen(
+        (LZOP_BIN, '-d', '-o', path),
+        stdin=subprocess.PIPE
+    )
+    return lzop

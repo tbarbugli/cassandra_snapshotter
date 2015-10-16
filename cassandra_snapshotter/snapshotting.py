@@ -16,6 +16,7 @@ from datetime import datetime
 from fabric.api import (env, execute, hide, run, sudo)
 from fabric.context_managers import settings
 from multiprocessing.dummy import Pool
+from cassandra_snapshotter.utils import decompression_pipe
 
 
 class Snapshot(object):
@@ -117,7 +118,7 @@ class RestoreWorker(object):
         bucket = self.s3connection.get_bucket(
             self.snapshot.s3_bucket, validate=False)
 
-        matcher_string = "(%(hosts)s).*/(%(keyspace)s)/(%(table)s)/" % dict(
+        matcher_string = "(%(hosts)s).*/(%(keyspace)s)/(%(table)s-[A-Za-z0-9]*)/" % dict(
             hosts='|'.join(hosts), keyspace=keyspace, table=table)
         self.keyspace_table_matcher = re.compile(matcher_string)
 
@@ -189,7 +190,20 @@ class RestoreWorker(object):
         filename = "./{!s}/{!s}/{!s}_{!s}".format(
             r.group(2), r.group(3),
             key.name.split('/')[2], key.name.split('/')[-1])
-        key.get_contents_to_filename(filename)
+
+        if filename.endswith('.lzo'):
+            filename = re.sub('\.lzo$', '', filename)
+            lzop_pipe = decompression_pipe(filename)
+            key.open_read()
+            for bytes in key:
+                lzop_pipe.stdin.write(bytes)
+            key.close()
+            out, err = lzop_pipe.communicate()
+            errcode = lzop_pipe.returncode
+            if errcode != 0:
+                logging.exception("lzop Out: %s\nError:%s\nExit Code %d: " % (out, err, errcode))
+        else:
+            key.get_contents_to_filename(filename)
 
         return key.size
 
