@@ -11,7 +11,6 @@ from .snapshotting import (BackupWorker, RestoreWorker,
 from .utils import (add_s3_arguments, get_s3_connection_host)
 from .utils import base_parser as _base_parser
 
-
 env.use_ssh_config = True
 
 
@@ -165,7 +164,7 @@ def main():
     backup_parser.add_argument(
         '--cassandra-bin-dir',
         default='/usr/bin',
-        help="cassandra binaries directoryr")
+        help="cassandra binaries directory")
 
     backup_parser.add_argument(
         '--user',
@@ -243,6 +242,7 @@ def main():
         list_backups(args)
     elif subcommand == 'restore':
         restore_backup(args)
+
 
 if __name__ == '__main__':
     main()
