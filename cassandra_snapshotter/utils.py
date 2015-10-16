@@ -1,3 +1,5 @@
+import sys
+
 try:
     from cStringIO import StringIO
 except ImportError:
@@ -77,7 +79,7 @@ def check_lzop():
     try:
         subprocess.call([LZOP_BIN, '--version'])
     except OSError:
-        print("{!s} not found on path".format(LZOP_BIN))
+        sys.exit("{!s} not found on path".format(LZOP_BIN))
 
 
 def compressed_pipe(path, size):
