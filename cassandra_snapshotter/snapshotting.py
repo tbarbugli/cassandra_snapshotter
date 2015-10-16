@@ -195,8 +195,8 @@ class RestoreWorker(object):
             filename = re.sub('\.lzo$', '', filename)
             lzop_pipe = decompression_pipe(filename)
             key.open_read()
-            for bytes in key:
-                lzop_pipe.stdin.write(bytes)
+            for chunk in key:
+                lzop_pipe.stdin.write(chunk)
             key.close()
             out, err = lzop_pipe.communicate()
             errcode = lzop_pipe.returncode
@@ -255,8 +255,7 @@ class BackupWorker(object):
         self.s3_ssenc = s3_ssenc
         self.s3_connection_host = s3_connection_host
         self.cassandra_conf_path = cassandra_conf_path
-        self.nodetool_path = nodetool_path or \
-                             "{!s}/nodetool".format(cassandra_bin_dir)
+        self.nodetool_path = nodetool_path or "{!s}/nodetool".format(cassandra_bin_dir)
         self.cqlsh_path = "{!s}/cqlsh".format(cassandra_bin_dir)
         self.backup_schema = backup_schema
         self.connection_pool_size = connection_pool_size
@@ -287,8 +286,7 @@ class BackupWorker(object):
             snapshot_keyspaces=snapshot.keyspaces,
             snapshot_table=snapshot.table,
             conf_path=self.cassandra_conf_path,
-            incremental_backups=incremental_backups and
-                                '--incremental_backups' or ''
+            incremental_backups=incremental_backups and '--incremental_backups' or ''
         )
         if self.use_sudo:
             sudo(cmd)
@@ -317,8 +315,7 @@ class BackupWorker(object):
             secret=self.aws_secret_access_key,
             manifest=manifest_path,
             bufsize=self.buffer_size,
-            incremental_backups=incremental_backups and
-                                '--incremental_backups' or ''
+            incremental_backups=incremental_backups and '--incremental_backups' or ''
         )
         if self.use_sudo:
             sudo(cmd)
