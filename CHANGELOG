@@ -1,6 +1,7 @@
 0.4.1 (not released yet)
  * Use cqlsh to backup schema instead of depreciated cassandra-cli
  * AWS IAM role support
+ * lzop decompression for the restore command
 
 0.4.0
  * Use sudo on cassandra nodes only if --use-sudo option is provided
