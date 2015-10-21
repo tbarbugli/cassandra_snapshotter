@@ -16,6 +16,7 @@ from datetime import datetime
 from fabric.api import (env, execute, hide, run, sudo)
 from fabric.context_managers import settings
 from multiprocessing.dummy import Pool
+from cassandra_snapshotter.utils import decompression_pipe
 
 
 class Snapshot(object):
@@ -117,7 +118,7 @@ class RestoreWorker(object):
         bucket = self.s3connection.get_bucket(
             self.snapshot.s3_bucket, validate=False)
 
-        matcher_string = "(%(hosts)s).*/(%(keyspace)s)/(%(table)s)/" % dict(
+        matcher_string = "(%(hosts)s).*/(%(keyspace)s)/(%(table)s-[A-Za-z0-9]*)/" % dict(
             hosts='|'.join(hosts), keyspace=keyspace, table=table)
         self.keyspace_table_matcher = re.compile(matcher_string)
 
@@ -189,7 +190,20 @@ class RestoreWorker(object):
         filename = "./{!s}/{!s}/{!s}_{!s}".format(
             r.group(2), r.group(3),
             key.name.split('/')[2], key.name.split('/')[-1])
-        key.get_contents_to_filename(filename)
+
+        if filename.endswith('.lzo'):
+            filename = re.sub('\.lzo$', '', filename)
+            lzop_pipe = decompression_pipe(filename)
+            key.open_read()
+            for chunk in key:
+                lzop_pipe.stdin.write(chunk)
+            key.close()
+            out, err = lzop_pipe.communicate()
+            errcode = lzop_pipe.returncode
+            if errcode != 0:
+                logging.exception("lzop Out: %s\nError:%s\nExit Code %d: " % (out, err, errcode))
+        else:
+            key.get_contents_to_filename(filename)
 
         return key.size
 
@@ -241,8 +255,7 @@ class BackupWorker(object):
         self.s3_ssenc = s3_ssenc
         self.s3_connection_host = s3_connection_host
         self.cassandra_conf_path = cassandra_conf_path
-        self.nodetool_path = nodetool_path or \
-            "{!s}/nodetool".format(cassandra_bin_dir)
+        self.nodetool_path = nodetool_path or "{!s}/nodetool".format(cassandra_bin_dir)
         self.cqlsh_path = "{!s}/cqlsh".format(cassandra_bin_dir)
         self.backup_schema = backup_schema
         self.connection_pool_size = connection_pool_size
@@ -273,8 +286,7 @@ class BackupWorker(object):
             snapshot_keyspaces=snapshot.keyspaces,
             snapshot_table=snapshot.table,
             conf_path=self.cassandra_conf_path,
-            incremental_backups=incremental_backups and
-            '--incremental_backups' or ''
+            incremental_backups=incremental_backups and '--incremental_backups' or ''
         )
         if self.use_sudo:
             sudo(cmd)
@@ -303,8 +315,7 @@ class BackupWorker(object):
             secret=self.aws_secret_access_key,
             manifest=manifest_path,
             bufsize=self.buffer_size,
-            incremental_backups=incremental_backups and
-            '--incremental_backups' or ''
+            incremental_backups=incremental_backups and '--incremental_backups' or ''
         )
         if self.use_sudo:
             sudo(cmd)
@@ -447,7 +458,6 @@ class BackupWorker(object):
 
 
 class SnapshotCollection(object):
-
     def __init__(
             self, aws_access_key_id,
             aws_secret_access_key, base_path, s3_bucket):

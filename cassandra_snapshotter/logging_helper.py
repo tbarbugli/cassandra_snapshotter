@@ -12,7 +12,6 @@ HANDLERS = []
 
 
 class IndentFormatter(logging.Formatter):
-
     def format(self, record, *args, **kwargs):
         """
         Format a message in the log
@@ -45,7 +44,7 @@ def configure(*args, **kwargs):
     def terrible_log_output(s):
         import sys
 
-        print >>sys.stderr, s
+        print >> sys.stderr, s
 
     places = [
         # Linux
@@ -77,7 +76,7 @@ def configure(*args, **kwargs):
         try:
             # Add syslog output.
             HANDLERS.append(handlers.SysLogHandler(syslog_address,
-                                                           facility=facility))
+                                                   facility=facility))
         except EnvironmentError, e:
             if e.errno in [errno.EACCES, errno.ECONNREFUSED]:
                 message = ('cassandra-snapshotter: Could not set up syslog, '
@@ -187,4 +186,3 @@ class CassandraSnapshotterLogger(object):
 
     def critical(self, *args, **kwargs):
         self.log(logging.CRITICAL, *args, **kwargs)
-

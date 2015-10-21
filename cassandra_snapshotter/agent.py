@@ -2,11 +2,8 @@ from __future__ import (absolute_import, print_function)
 
 import boto
 from boto.s3.connection import S3Connection
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from StringIO import StringIO
 from yaml import load
+
 try:
     # LibYAML based parser and emitter
     from yaml import CLoader as Loader
@@ -16,58 +13,27 @@ import os
 import time
 import glob
 import logging
-import subprocess
 import multiprocessing
 from multiprocessing.dummy import Pool
 
 from cassandra_snapshotter import logging_helper
 from cassandra_snapshotter.timeout import timeout
 from cassandra_snapshotter.utils import (add_s3_arguments, base_parser,
-                    map_wrap, get_s3_connection_host)
-
+                                         map_wrap, get_s3_connection_host,
+                                         check_lzop, compressed_pipe)
 
 DEFAULT_CONCURRENCY = max(multiprocessing.cpu_count() - 1, 1)
-BUFFER_SIZE = 64         # Default bufsize is 64M
+BUFFER_SIZE = 64  # Default bufsize is 64M
 MBFACTOR = float(1 << 20)
-LZOP_BIN = 'lzop'
 MAX_RETRY_COUNT = 3
 SLEEP_TIME = 2
 UPLOAD_TIMEOUT = 600
-
 
 logging_helper.configure(
     format='%(name)-12s %(levelname)-8s %(message)s')
 
 logger = logging_helper.CassandraSnapshotterLogger('cassandra_snapshotter.agent')
 boto.set_stream_logger('boto', logging.WARNING)
-
-
-def check_lzop():
-    try:
-        subprocess.call([LZOP_BIN, '--version'])
-    except OSError:
-        print("{!s} not found on path".format(LZOP_BIN))
-
-
-def compressed_pipe(path, size):
-    """
-    Returns a generator that yields compressed chunks of
-    the given file_path
-
-    compression is done with lzop
-
-    """
-    lzop = subprocess.Popen(
-        (LZOP_BIN, '--stdout', path),
-        bufsize=size,
-        stdout=subprocess.PIPE
-    )
-
-    while True:
-        chunk = lzop.stdout.read(size)
-        if not chunk:
-            break
-        yield StringIO(chunk)
 
 
 def get_bucket(
@@ -140,7 +106,7 @@ def cancel_upload(bucket, mp, remote_path):
     sleeps SLEEP_TIME seconds and then makes sure that there are not parts left
     in storage
     """
-    attempts = 0 
+    attempts = 0
     while attempts < 5:
         try:
             time.sleep(SLEEP_TIME)
@@ -172,7 +138,8 @@ def put_from_manifest(
     buffer_size = int(bufsize * MBFACTOR)
     files = manifest_fp.read().splitlines()
     pool = Pool(concurrency)
-    for ret in pool.imap(upload_file, ((bucket, f, destination_path(s3_base_path, f), s3_ssenc, buffer_size) for f in files)):
+    for ret in pool.imap(upload_file,
+                         ((bucket, f, destination_path(s3_base_path, f), s3_ssenc, buffer_size) for f in files)):
         if not ret:
             exit_code = 1
             break
@@ -297,6 +264,7 @@ def main():
             args.concurrency,
             args.incremental_backups
         )
+
 
 if __name__ == '__main__':
     # TODO: if lzop is not available we should fail or run without it
