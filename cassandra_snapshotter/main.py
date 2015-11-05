@@ -21,6 +21,9 @@ def run_backup(args):
     if args.password:
         env.password = args.password
 
+    if args.sshkey:
+        env.key_filename = args.sshkey
+
     if args.sshport:
         env.port = args.sshport
 
@@ -183,6 +186,9 @@ def main():
         '--password',
         default='',
         help="User password to connect with hosts")
+
+    backup_parser.add_argument('--sshkey',
+        help="The file containing the private ssh key to use to connect with hosts")
 
     backup_parser.add_argument(
         '--new-snapshot',
