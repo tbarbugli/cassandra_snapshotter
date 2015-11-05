@@ -187,7 +187,8 @@ def main():
         default='',
         help="User password to connect with hosts")
 
-    backup_parser.add_argument('--sshkey',
+    backup_parser.add_argument(
+        '--sshkey',
         help="The file containing the private ssh key to use to connect with hosts")
 
     backup_parser.add_argument(
