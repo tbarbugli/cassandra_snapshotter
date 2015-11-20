@@ -495,7 +495,8 @@ class BackupWorker(object):
 class SnapshotCollection(object):
     def __init__(
             self, aws_access_key_id,
-            aws_secret_access_key, base_path, s3_bucket):
+            aws_secret_access_key, base_path, s3_bucket, s3_connection_host):
+        self.s3_connection_host = s3_connection_host
         self.s3_bucket = s3_bucket
         self.base_path = base_path
         self.snapshots = None
@@ -506,7 +507,7 @@ class SnapshotCollection(object):
         if self.snapshots:
             return
 
-        conn = S3Connection(self.aws_access_key_id, self.aws_secret_access_key)
+        conn = S3Connection(self.aws_access_key_id, self.aws_secret_access_key, host=self.s3_connection_host)
         bucket = conn.get_bucket(self.s3_bucket, validate=False)
         self.snapshots = []
         prefix = self.base_path
