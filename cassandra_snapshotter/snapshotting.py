@@ -283,7 +283,7 @@ class BackupWorker(object):
         cmd = manifest_command % dict(
             manifest_path=manifest_path,
             snapshot_name=snapshot.name,
-            snapshot_keyspaces=snapshot.keyspaces,
+            snapshot_keyspaces=','.join(snapshot.keyspaces or ''),
             snapshot_table=snapshot.table,
             conf_path=self.cassandra_conf_path,
             incremental_backups=incremental_backups and '--incremental_backups' or ''
@@ -360,8 +360,8 @@ class BackupWorker(object):
             with hide('output'):
                 cmd = "{!s} -e 'DESCRIBE SCHEMA;'".format(self.cqlsh_path)
                 if keyspace:
-                    cmd = "{!s} -e 'DESCRIBE SCHEMA;' -k {!s}".format(
-                        self.cqlsh_path, keyspace)
+                    cmd = "{!s} -e 'DESCRIBE KEYSPACE {!s};' -k {!s}".format(
+                        self.cqlsh_path, keyspace, keyspace)
                 if self.use_sudo:
                     output = sudo(cmd)
                 else:
@@ -385,7 +385,7 @@ class BackupWorker(object):
 
     def write_schema(self, snapshot):
         if snapshot.keyspaces:
-            for ks in snapshot.keyspaces.split(','):
+            for ks in snapshot.keyspaces:
                 logging.info("Writing schema for keyspace {!s}".format(ks))
                 content = self.get_keyspace_schema(ks)
                 schema_path = '/'.join(
@@ -410,29 +410,57 @@ class BackupWorker(object):
     def node_start_backup(self, snapshot, incremental_backups):
         """Runs snapshot command on a cassandra node"""
 
-        if snapshot.table:
-            table_param = "-cf {!s}".format(snapshot.table)
-        else:
-            table_param = ''
+        def run_cmd(cmd):
+           with hide('running', 'stdout', 'stderr'):
+               if self.use_sudo:
+                   sudo(cmd)
+               else:
+                   run(cmd)
 
         if incremental_backups:
-            backup_command = "%(nodetool)s flush %(keyspaces)s %(table_param)s"
-        else:
-            backup_command = "%(nodetool)s snapshot -t %(snapshot)s \
-                %(keyspaces)s %(table_param)s"
+            backup_command = "%(nodetool)s flush %(keyspace)s %(tables)s"
 
-        cmd = backup_command % dict(
-            nodetool=self.nodetool_path,
-            snapshot=snapshot.name,
-            keyspaces=snapshot.keyspaces or '',
-            table_param=table_param
-        )
-
-        with hide('running', 'stdout', 'stderr'):
-            if self.use_sudo:
-                sudo(cmd)
+            if snapshot.keyspaces:
+                # flush can only take one keyspace at a time.
+                for keyspace in snapshot.keyspaces:
+                    cmd = backup_command % dict(
+                        nodetool=self.nodetool_path,
+                        keyspace=keyspace,
+                        tables=snapshot.table or ''
+                    )
+                    run_cmd(cmd)
             else:
-                run(cmd)
+                # If no keyspace then can't provide a table either.
+                cmd = backup_command % dict(
+                    nodetool=self.nodetool_path,
+                    keyspace='',
+                    tables=''
+                )
+                run_cmd(cmd)
+
+        else:
+            backup_command = "%(nodetool)s snapshot %(table_param)s \
+                -t %(snapshot)s %(keyspaces)s"
+
+            if snapshot.table:
+                # Only one keyspace can be specified along with a column family.
+                table_param = "-cf {!s}".format(snapshot.table)
+                for keyspace in snapshot.keyspaces:
+                    cmd = backup_command % dict(
+                        nodetool=self.nodetool_path,
+                        table_param=table_param,
+                        snapshot=snapshot.name,
+                        keyspaces=keyspace
+                    )
+                    run_cmd(cmd)
+            else:
+                cmd = backup_command % dict(
+                    nodetool=self.nodetool_path,
+                    table_param='',
+                    snapshot=snapshot.name,
+                    keyspaces=' '.join(snapshot.keyspaces or '')
+                )
+                run_cmd(cmd)
 
     def upload_cluster_backups(self, snapshot, incremental_backups):
         logging.info("Uploading backups")
