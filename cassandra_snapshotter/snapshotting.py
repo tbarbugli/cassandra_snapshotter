@@ -411,11 +411,11 @@ class BackupWorker(object):
         """Runs snapshot command on a cassandra node"""
 
         def run_cmd(cmd):
-           with hide('running', 'stdout', 'stderr'):
-               if self.use_sudo:
-                   sudo(cmd)
-               else:
-                   run(cmd)
+            with hide('running', 'stdout', 'stderr'):
+                if self.use_sudo:
+                    sudo(cmd)
+                else:
+                    run(cmd)
 
         if incremental_backups:
             backup_command = "%(nodetool)s flush %(keyspace)s %(tables)s"
