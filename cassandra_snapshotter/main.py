@@ -83,7 +83,8 @@ def list_backups(args):
         args.aws_access_key_id,
         args.aws_secret_access_key,
         args.s3_base_path,
-        args.s3_bucket_name
+        args.s3_bucket_name,
+        get_s3_connection_host(args.s3_bucket_region)
     )
     path_snapshots = defaultdict(list)
 
