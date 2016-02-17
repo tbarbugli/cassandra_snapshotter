@@ -163,8 +163,8 @@ def put_from_manifest(
     for f in pool.imap(upload_file,
                        ((bucket, f, destination_path(s3_base_path, f), s3_ssenc, buffer_size) for f in files if f)):
         if f is None:
-           # Upload failed.
-           exit_code = 1
+            # Upload failed.
+            exit_code = 1
         elif incremental_backups:
             # Delete files that were successfully uploaded.
             os.remove(f)
