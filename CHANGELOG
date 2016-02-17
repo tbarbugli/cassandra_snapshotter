@@ -5,6 +5,7 @@
  * add argument to pass an SSH key file
  * Get --keyspaces working with multiple keyspaces
  * Fixing sstableloader path and data directory for recovery
+ * Added exclude tables option
 
 0.4.0
  * Use sudo on cassandra nodes only if --use-sudo option is provided
