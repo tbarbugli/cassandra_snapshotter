@@ -4,6 +4,7 @@
  * lzop decompression for the restore command
  * add argument to pass an SSH key file
  * Get --keyspaces working with multiple keyspaces
+ * Fixing sstableloader path and data directory for recovery
 
 0.4.0
  * Use sudo on cassandra nodes only if --use-sudo option is provided
