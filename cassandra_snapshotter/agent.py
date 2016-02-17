@@ -139,14 +139,15 @@ def put_from_manifest(
     files = manifest_fp.read().splitlines()
     pool = Pool(concurrency)
     for ret in pool.imap(upload_file,
-                         ((bucket, f, destination_path(s3_base_path, f), s3_ssenc, buffer_size) for f in files)):
+                         ((bucket, f, destination_path(s3_base_path, f), s3_ssenc, buffer_size) for f in files if f)):
         if not ret:
             exit_code = 1
             break
     pool.terminate()
     if incremental_backups:
         for f in files:
-            os.remove(f)
+            if f:
+                os.remove(f)
     exit(exit_code)
 
 
@@ -164,7 +165,7 @@ def create_upload_manifest(
         snapshot_name, snapshot_keyspaces, snapshot_table,
         conf_path, manifest_path, incremental_backups=False):
     if snapshot_keyspaces:
-        keyspace_globs = snapshot_keyspaces.split()
+        keyspace_globs = snapshot_keyspaces.split(',')
     else:
         keyspace_globs = ['*']
 

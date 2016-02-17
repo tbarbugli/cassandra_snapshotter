@@ -28,6 +28,7 @@ def run_backup(args):
         env.port = args.sshport
 
     env.hosts = args.hosts.split(',')
+    env.keyspaces = args.keyspaces.split(',') if args.keyspaces else None
 
     if args.new_snapshot:
         create_snapshot = True
@@ -39,7 +40,7 @@ def run_backup(args):
             args.s3_bucket_name
         ).get_snapshot_for(
             hosts=env.hosts,
-            keyspaces=args.keyspaces,
+            keyspaces=env.keyspaces,
             table=args.table
         )
         create_snapshot = existing_snapshot is None
@@ -65,7 +66,7 @@ def run_backup(args):
             base_path=args.s3_base_path,
             s3_bucket=args.s3_bucket_name,
             hosts=env.hosts,
-            keyspaces=args.keyspaces,
+            keyspaces=env.keyspaces,
             table=args.table
         )
         worker.snapshot(snapshot)
@@ -142,12 +143,12 @@ def main():
     backup_parser.add_argument(
         '--hosts',
         required=True,
-        help="The comma separated list of hosts to snapshot")
+        help="Comma separated list of hosts to snapshot")
 
     backup_parser.add_argument(
         '--keyspaces',
         default='',
-        help="The keyspaces to backup (omit to backup all)")
+        help="Comma separated list of keyspaces to backup (omit to backup all)")
 
     backup_parser.add_argument(
         '--table',
