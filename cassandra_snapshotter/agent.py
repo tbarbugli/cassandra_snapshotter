@@ -163,7 +163,7 @@ def get_data_path(conf_path):
 
 def create_upload_manifest(
         snapshot_name, snapshot_keyspaces, snapshot_table,
-        conf_path, manifest_path, incremental_backups=False):
+        conf_path, manifest_path, exclude_tables, incremental_backups=False):
     if snapshot_keyspaces:
         keyspace_globs = snapshot_keyspaces.split(',')
     else:
@@ -176,6 +176,7 @@ def create_upload_manifest(
 
     data_paths = get_data_path(conf_path)
     files = []
+    exclude_tables_list = exclude_tables.split(',')
     for data_path in data_paths:
         for keyspace_glob in keyspace_globs:
             path = [
@@ -190,8 +191,15 @@ def create_upload_manifest(
             path += ['*']
 
             path = os.path.join(*path)
-            glob_results = '\n'.join(glob.glob(os.path.join(path)))
-            files.extend([f.strip() for f in glob_results.split("\n")])
+            if len(exclude_tables_list) > 0:
+                for f in glob.glob(os.path.join(path)):
+                    # Get the table name
+                    # The current format of a file path looks like:
+                    # /var/lib/cassandra/data03/system/compaction_history/snapshots/20151102182658/system-compaction_history-jb-6684-Summary.db
+                    if f.split('/')[-4] not in exclude_tables_list:
+                        files.append(f.strip())
+            else:
+                files.append(f.strip() for f in glob.glob(os.path.join(path)))
 
     with open(manifest_path, 'w') as manifest:
         manifest.write('\n'.join("%s" % f for f in files))
@@ -237,6 +245,8 @@ def main():
         '--snapshot_keyspaces', default='', required=False, type=str)
     manifest_parser.add_argument(
         '--snapshot_table', required=False, default='', type=str)
+    manifest_parser.add_argument(
+        '--exclude_tables', required=False, type=str)
 
     args = base_parser.parse_args()
     subcommand = args.subcommand
@@ -248,6 +258,7 @@ def main():
             args.snapshot_table,
             args.conf_path,
             args.manifest_path,
+            args.exclude_tables,
             args.incremental_backups
         )
 

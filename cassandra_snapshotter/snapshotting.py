@@ -252,7 +252,7 @@ class BackupWorker(object):
                  aws_access_key_id, s3_bucket_region, s3_ssenc,
                  s3_connection_host, cassandra_conf_path, use_sudo,
                  nodetool_path, cassandra_bin_dir, backup_schema,
-                 buffer_size, connection_pool_size=12):
+                 buffer_size, exclude_tables, connection_pool_size=12):
         self.aws_secret_access_key = aws_secret_access_key
         self.aws_access_key_id = aws_access_key_id
         self.s3_bucket_region = s3_bucket_region
@@ -268,6 +268,7 @@ class BackupWorker(object):
             self.use_sudo = bool(strtobool(use_sudo))
         else:
             self.use_sudo = use_sudo
+        self.exclude_tables = exclude_tables
 
     def get_current_node_hostname(self):
         return env.host_string
@@ -283,13 +284,15 @@ class BackupWorker(object):
                            "--snapshot_name=%(snapshot_name)s " \
                            "--snapshot_keyspaces=%(snapshot_keyspaces)s " \
                            "--snapshot_table=%(snapshot_table)s " \
-                           "--conf_path=%(conf_path)s"
+                           "--conf_path=%(conf_path)s " \
+                           "--exclude_tables=%(exclude_tables)s"
         cmd = manifest_command % dict(
             manifest_path=manifest_path,
             snapshot_name=snapshot.name,
             snapshot_keyspaces=','.join(snapshot.keyspaces or ''),
             snapshot_table=snapshot.table,
             conf_path=self.cassandra_conf_path,
+            exclude_tables=self.exclude_tables,
             incremental_backups=incremental_backups and '--incremental_backups' or ''
         )
         if self.use_sudo:
