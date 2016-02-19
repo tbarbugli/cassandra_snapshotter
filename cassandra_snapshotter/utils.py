@@ -9,6 +9,7 @@ import functools
 import subprocess
 
 LZOP_BIN = 'lzop'
+PV_BIN = 'pv'
 
 S3_CONNECTION_HOSTS = {
     'us-east-1': 's3.amazonaws.com',
@@ -81,8 +82,13 @@ def check_lzop():
     except OSError:
         sys.exit("{!s} not found on path".format(LZOP_BIN))
 
+def check_pv():
+    try:
+        subprocess.call([PV_BIN, '--version'])
+    except OSError:
+        sys.exit("{!s} not found on path".format(PV_BIN))
 
-def compressed_pipe(path, size):
+def compressed_pipe(path, size, rate_limit):
     """
     Returns a generator that yields compressed chunks of
     the given file_path
@@ -96,8 +102,18 @@ def compressed_pipe(path, size):
         stdout=subprocess.PIPE
     )
 
+    if rate_limit > 0:
+        pv = subprocess.Popen(
+            (PV_BIN, '--rate-limit', str(rate_limit) + 'k'),
+            stdin=lzop.stdout,
+            stdout=subprocess.PIPE
+        )
+
     while True:
-        chunk = lzop.stdout.read(size)
+        if rate_limit > 0:
+            chunk = pv.stdout.read(size)
+        else:
+            chunk = lzop.stdout.read(size)
         if not chunk:
             break
         yield StringIO(chunk)

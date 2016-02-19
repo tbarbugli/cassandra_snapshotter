@@ -58,7 +58,9 @@ def run_backup(args):
         buffer_size=args.buffer_size,
         use_sudo=args.use_sudo,
         connection_pool_size=args.connection_pool_size,
-        exclude_tables=args.exclude_tables
+        exclude_tables=args.exclude_tables,
+        reduced_redundancy=args.reduced_redundancy,
+        rate_limit=args.rate_limit
     )
 
     if create_snapshot:
@@ -214,6 +216,16 @@ def main():
         '--connection-pool-size',
         default=12,
         help="Number of simultaneous connections to cassandra nodes")
+
+    backup_parser.add_argument(
+        '--reduced-redundancy',
+        action='store_true',
+        help="Use S3 reduced redundancy")
+
+    backup_parser.add_argument(
+        '--rate-limit',
+        default=0,
+        help="Limit the upload speed to S3 (by using 'pv'). Value expressed in kilobytes (*1024)")
 
     # restore snapshot arguments
     restore_parser = subparsers.add_parser(

@@ -235,7 +235,7 @@ class BackupWorker(object):
         - requests cassandra to create new backups
         - uploads backup files to S3
         - clears backup files from nodes
-        - updates backup meta informations
+        - updates backup meta information
 
     When performing a new snapshot the manifest of the snapshot is
     uploaded to S3 for later use.
@@ -252,7 +252,8 @@ class BackupWorker(object):
                  aws_access_key_id, s3_bucket_region, s3_ssenc,
                  s3_connection_host, cassandra_conf_path, use_sudo,
                  nodetool_path, cassandra_bin_dir, backup_schema,
-                 buffer_size, exclude_tables, connection_pool_size=12):
+                 buffer_size, exclude_tables, rate_limit, connection_pool_size=12,
+                 reduced_redundancy=False):
         self.aws_secret_access_key = aws_secret_access_key
         self.aws_access_key_id = aws_access_key_id
         self.s3_bucket_region = s3_bucket_region
@@ -264,6 +265,8 @@ class BackupWorker(object):
         self.backup_schema = backup_schema
         self.connection_pool_size = connection_pool_size
         self.buffer_size = buffer_size
+        self.reduced_redundancy = reduced_redundancy
+        self.rate_limit = rate_limit
         if isinstance(use_sudo, basestring):
             self.use_sudo = bool(strtobool(use_sudo))
         else:
@@ -275,7 +278,7 @@ class BackupWorker(object):
 
     def upload_node_backups(self, snapshot, incremental_backups):
         prefix = '/'.join(snapshot.base_path.split(
-            '/') + [self.get_current_node_hostname()])
+                '/') + [self.get_current_node_hostname()])
 
         manifest_path = '/tmp/backupmanifest'
         manifest_command = "cassandra-snapshotter-agent " \
@@ -287,13 +290,13 @@ class BackupWorker(object):
                            "--conf_path=%(conf_path)s " \
                            "--exclude_tables=%(exclude_tables)s"
         cmd = manifest_command % dict(
-            manifest_path=manifest_path,
-            snapshot_name=snapshot.name,
-            snapshot_keyspaces=','.join(snapshot.keyspaces or ''),
-            snapshot_table=snapshot.table,
-            conf_path=self.cassandra_conf_path,
-            exclude_tables=self.exclude_tables,
-            incremental_backups=incremental_backups and '--incremental_backups' or ''
+                manifest_path=manifest_path,
+                snapshot_name=snapshot.name,
+                snapshot_keyspaces=','.join(snapshot.keyspaces or ''),
+                snapshot_table=snapshot.table,
+                conf_path=self.cassandra_conf_path,
+                exclude_tables=self.exclude_tables,
+                incremental_backups=incremental_backups and '--incremental_backups' or ''
         )
         if self.use_sudo:
             sudo(cmd)
@@ -302,27 +305,34 @@ class BackupWorker(object):
 
         upload_command = "cassandra-snapshotter-agent %(incremental_backups)s " \
                          "put " \
-                         "--s3-bucket-name=%(bucket)s " \
-                         "--s3-bucket-region=%(s3_bucket_region)s %(s3_ssenc)s " \
-                         "--s3-base-path=%(prefix)s " \
-                         "--manifest=%(manifest)s " \
-                         "--bufsize=%(bufsize)s " \
-                         "--concurrency=4"
+                             "--s3-bucket-name=%(bucket)s " \
+                             "--s3-bucket-region=%(s3_bucket_region)s %(s3_ssenc)s " \
+                             "--s3-base-path=%(prefix)s " \
+                             "--manifest=%(manifest)s " \
+                             "--bufsize=%(bufsize)s " \
+                             "--concurrency=4"
+
+        if self.reduced_redundancy:
+            upload_command += " --reduced-redundancy"
+
+        if self.rate_limit > 0:
+            upload_command += " --rate-limit=%(rate_limit)s"
 
         if self.aws_access_key_id and self.aws_secret_access_key:
             upload_command += " --aws-access-key-id=%(key)s " \
                               "--aws-secret-access-key=%(secret)s"
 
         cmd = upload_command % dict(
-            bucket=snapshot.s3_bucket,
-            s3_bucket_region=self.s3_bucket_region,
-            s3_ssenc=self.s3_ssenc and '--s3-ssenc' or '',
-            prefix=prefix,
-            key=self.aws_access_key_id,
-            secret=self.aws_secret_access_key,
-            manifest=manifest_path,
-            bufsize=self.buffer_size,
-            incremental_backups=incremental_backups and '--incremental_backups' or ''
+                bucket=snapshot.s3_bucket,
+                s3_bucket_region=self.s3_bucket_region,
+                s3_ssenc=self.s3_ssenc and '--s3-ssenc' or '',
+                prefix=prefix,
+                key=self.aws_access_key_id,
+                secret=self.aws_secret_access_key,
+                manifest=manifest_path,
+                bufsize=self.buffer_size,
+                rate_limit=self.rate_limit,
+                incremental_backups=incremental_backups and '--incremental_backups' or ''
         )
         if self.use_sudo:
             sudo(cmd)
@@ -396,12 +406,12 @@ class BackupWorker(object):
                 logging.info("Writing schema for keyspace {!s}".format(ks))
                 content = self.get_keyspace_schema(ks)
                 schema_path = '/'.join(
-                    [snapshot.base_path, "schema_{!s}.cdl".format(ks)])
+                    [snapshot.base_path, "schema_{!s}.cql".format(ks)])
                 self.write_on_S3(snapshot.s3_bucket, schema_path, content)
         else:
             logging.info("Writing schema for all keyspaces")
             content = self.get_keyspace_schema()
-            schema_path = '/'.join([snapshot.base_path, "schema.cdl"])
+            schema_path = '/'.join([snapshot.base_path, "schema.cql"])
             self.write_on_S3(snapshot.s3_bucket, schema_path, content)
 
     def write_snapshot_manifest(self, snapshot):
