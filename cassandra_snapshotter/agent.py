@@ -25,8 +25,9 @@ from cassandra_snapshotter.utils import (add_s3_arguments, base_parser,
 DEFAULT_CONCURRENCY = max(multiprocessing.cpu_count() - 1, 1)
 BUFFER_SIZE = 64  # Default bufsize is 64M
 MBFACTOR = float(1 << 20)
-MAX_RETRY_COUNT = 3
+MAX_RETRY_COUNT = 4
 SLEEP_TIME = 2
+SLEEP_MULTIPLIER = 3
 UPLOAD_TIMEOUT = 600
 
 logging_helper.configure(
@@ -59,40 +60,61 @@ def s3_progress_update_callback(*args):
 
 @map_wrap
 def upload_file(bucket, source, destination, s3_ssenc, bufsize):
+    mp = None
     retry_count = 0
+    sleep_time = SLEEP_TIME
     while True:
         try:
-            mp = bucket.initiate_multipart_upload(destination, encrypt_key=s3_ssenc)
-            logger.info("Initialized multipart upload for file {!s} to {!s}".format(source, destination))
-        except Exception as exc:
-            logger.error("Error while initializing multipart upload for file {!s} to {!s}".format(source, destination))
-            logger.error(exc.message)
-            return False
-        try:
-            for i, chunk in enumerate(compressed_pipe(source, bufsize)):
-                mp.upload_part_from_file(chunk, i + 1, cb=s3_progress_update_callback)
-        except Exception as exc:
-            logger.error("Error uploading file {!s} to {!s}.\
-                Retry count: {}".format(source, destination, retry_count))
-            logger.error(exc.message)
-            if retry_count >= MAX_RETRY_COUNT:
-                logger.error("Retried too many times uploading file {!s}".format(source))
-                cancel_upload(bucket, mp, destination)
-                return False
-            else:
-                time.sleep(SLEEP_TIME)
-                retry_count = retry_count + 1
-        else:
+            if mp is None:
+                # Initiate the multi-part upload.
+                try:
+                    mp = bucket.initiate_multipart_upload(destination, encrypt_key=s3_ssenc)
+                    logger.info("Initialized multipart upload for file {!s} to {!s}".format(source, destination))
+                except Exception as exc:
+                    logger.error("Error while initializing multipart upload for file {!s} to {!s}".format(source, destination))
+                    logger.error(exc.message)
+                    raise
+
+            try:
+                for i, chunk in enumerate(compressed_pipe(source, bufsize)):
+                    mp.upload_part_from_file(chunk, i + 1, cb=s3_progress_update_callback)
+            except Exception as exc:
+                logger.error("Error uploading file {!s} to {!s}".format(source, destination))
+                logger.error(exc.message)
+                raise
+
             try:
                 mp.complete_upload()
             except Exception as exc:
-                logger.error("Error completing multipart upload for file {!s} to {!s}".format(source, destination))
+                logger.error("Error completing multipart file upload for file {!s} to {!s}".format(source, destination))
                 logger.error(exc.message)
-                logger.error(mp.to_xml())
+                # The multi-part object may be in a bad state.  Extract an error
+                # message if we can, then discard it.
+                try:
+                    logger.error(mp.to_xml())
+                except:
+                    pass
                 cancel_upload(bucket, mp, destination)
-                return False
+                mp = None
+                raise
+
+            # Successful upload, return the uploaded file.
+            return source
+        except:
+            # Failure anywhere reaches here.
+            retry_count = retry_count + 1
+            if retry_count > MAX_RETRY_COUNT:
+                logger.error("Retried too many times uploading file {!s}".format(source))
+                # Abort the multi-part upload if it was ever initiated.
+                if mp is not None:
+                    cancel_upload(bucket, mp, destination)
+                return None
             else:
-                return True
+                logger.info("Sleeping before retry")
+                time.sleep(sleep_time)
+                sleep_time = sleep_time * SLEEP_MULTIPLIER
+                logger.info("Retrying {}/{}".format(retry_count, MAX_RETRY_COUNT))
+                # Go round again.
 
 
 @timeout(UPLOAD_TIMEOUT)
@@ -138,16 +160,15 @@ def put_from_manifest(
     buffer_size = int(bufsize * MBFACTOR)
     files = manifest_fp.read().splitlines()
     pool = Pool(concurrency)
-    for ret in pool.imap(upload_file,
-                         ((bucket, f, destination_path(s3_base_path, f), s3_ssenc, buffer_size) for f in files if f)):
-        if not ret:
+    for f in pool.imap(upload_file,
+                       ((bucket, f, destination_path(s3_base_path, f), s3_ssenc, buffer_size) for f in files if f)):
+        if f is None:
+            # Upload failed.
             exit_code = 1
-            break
+        elif incremental_backups:
+            # Delete files that were successfully uploaded.
+            os.remove(f)
     pool.terminate()
-    if incremental_backups:
-        for f in files:
-            if f:
-                os.remove(f)
     exit(exit_code)
 
 
