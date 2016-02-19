@@ -365,10 +365,10 @@ class BackupWorker(object):
     def get_keyspace_schema(self, keyspace=None):
         with settings(host_string=env.hosts[0]):
             with hide('output'):
-                cmd = "{!s} -e 'DESCRIBE SCHEMA;'".format(self.cqlsh_path)
+                cmd = "echo 'DESCRIBE SCHEMA;' | {!s}".format(self.cqlsh_path)
                 if keyspace:
-                    cmd = "{!s} -e 'DESCRIBE KEYSPACE {!s};' -k {!s}".format(
-                        self.cqlsh_path, keyspace, keyspace)
+                    cmd = "echo 'DESCRIBE KEYSPACE {!s};' | {!s} -k {!s}".format(
+                        keyspace, self.cqlsh_path, keyspace)
                 if self.use_sudo:
                     output = sudo(cmd)
                 else:
