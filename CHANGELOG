@@ -6,6 +6,7 @@
  * Get --keyspaces working with multiple keyspaces
  * Fixing sstableloader path and data directory for recovery
  * Added exclude tables option
+ * Make upload_file robust against failures of all kinds
 
 0.4.0
  * Use sudo on cassandra nodes only if --use-sudo option is provided
