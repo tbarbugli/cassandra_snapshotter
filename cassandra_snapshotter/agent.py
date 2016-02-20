@@ -92,7 +92,7 @@ def upload_file(bucket, source, destination, s3_ssenc, bufsize):
                 # message if we can, then discard it.
                 try:
                     logger.error(mp.to_xml())
-                except:
+                except Exception as exc:
                     pass
                 cancel_upload(bucket, mp, destination)
                 mp = None
@@ -100,7 +100,7 @@ def upload_file(bucket, source, destination, s3_ssenc, bufsize):
 
             # Successful upload, return the uploaded file.
             return source
-        except:
+        except Exception as exc:
             # Failure anywhere reaches here.
             retry_count = retry_count + 1
             if retry_count > MAX_RETRY_COUNT:
