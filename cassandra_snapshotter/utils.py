@@ -82,11 +82,13 @@ def check_lzop():
     except OSError:
         sys.exit("{!s} not found on path".format(LZOP_BIN))
 
+
 def check_pv():
     try:
         subprocess.call([PV_BIN, '--version'])
     except OSError:
         sys.exit("{!s} not found on path".format(PV_BIN))
+
 
 def compressed_pipe(path, size, rate_limit):
     """
