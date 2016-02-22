@@ -277,8 +277,7 @@ class BackupWorker(object):
         return env.host_string
 
     def upload_node_backups(self, snapshot, incremental_backups):
-        prefix = '/'.join(snapshot.base_path.split(
-                '/') + [self.get_current_node_hostname()])
+        prefix = '/'.join(snapshot.base_path.split('/') + [self.get_current_node_hostname()])
 
         manifest_path = '/tmp/backupmanifest'
         manifest_command = "cassandra-snapshotter-agent " \
@@ -290,13 +289,13 @@ class BackupWorker(object):
                            "--conf_path=%(conf_path)s " \
                            "--exclude_tables=%(exclude_tables)s"
         cmd = manifest_command % dict(
-                manifest_path=manifest_path,
-                snapshot_name=snapshot.name,
-                snapshot_keyspaces=','.join(snapshot.keyspaces or ''),
-                snapshot_table=snapshot.table,
-                conf_path=self.cassandra_conf_path,
-                exclude_tables=self.exclude_tables,
-                incremental_backups=incremental_backups and '--incremental_backups' or ''
+            manifest_path=manifest_path,
+            snapshot_name=snapshot.name,
+            snapshot_keyspaces=','.join(snapshot.keyspaces or ''),
+            snapshot_table=snapshot.table,
+            conf_path=self.cassandra_conf_path,
+            exclude_tables=self.exclude_tables,
+            incremental_backups=incremental_backups and '--incremental_backups' or ''
         )
         if self.use_sudo:
             sudo(cmd)
@@ -305,12 +304,12 @@ class BackupWorker(object):
 
         upload_command = "cassandra-snapshotter-agent %(incremental_backups)s " \
                          "put " \
-                             "--s3-bucket-name=%(bucket)s " \
-                             "--s3-bucket-region=%(s3_bucket_region)s %(s3_ssenc)s " \
-                             "--s3-base-path=%(prefix)s " \
-                             "--manifest=%(manifest)s " \
-                             "--bufsize=%(bufsize)s " \
-                             "--concurrency=4"
+                         "--s3-bucket-name=%(bucket)s " \
+                         "--s3-bucket-region=%(s3_bucket_region)s %(s3_ssenc)s " \
+                         "--s3-base-path=%(prefix)s " \
+                         "--manifest=%(manifest)s " \
+                         "--bufsize=%(bufsize)s " \
+                         "--concurrency=4"
 
         if self.reduced_redundancy:
             upload_command += " --reduced-redundancy"
@@ -323,16 +322,16 @@ class BackupWorker(object):
                               "--aws-secret-access-key=%(secret)s"
 
         cmd = upload_command % dict(
-                bucket=snapshot.s3_bucket,
-                s3_bucket_region=self.s3_bucket_region,
-                s3_ssenc=self.s3_ssenc and '--s3-ssenc' or '',
-                prefix=prefix,
-                key=self.aws_access_key_id,
-                secret=self.aws_secret_access_key,
-                manifest=manifest_path,
-                bufsize=self.buffer_size,
-                rate_limit=self.rate_limit,
-                incremental_backups=incremental_backups and '--incremental_backups' or ''
+            bucket=snapshot.s3_bucket,
+            s3_bucket_region=self.s3_bucket_region,
+            s3_ssenc=self.s3_ssenc and '--s3-ssenc' or '',
+            prefix=prefix,
+            key=self.aws_access_key_id,
+            secret=self.aws_secret_access_key,
+            manifest=manifest_path,
+            bufsize=self.buffer_size,
+            rate_limit=self.rate_limit,
+            incremental_backups=incremental_backups and '--incremental_backups' or ''
         )
         if self.use_sudo:
             sudo(cmd)
