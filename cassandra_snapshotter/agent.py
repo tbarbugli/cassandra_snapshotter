@@ -20,7 +20,7 @@ from cassandra_snapshotter import logging_helper
 from cassandra_snapshotter.timeout import timeout
 from cassandra_snapshotter.utils import (add_s3_arguments, base_parser,
                                          map_wrap, get_s3_connection_host,
-                                         check_lzop, compressed_pipe)
+                                         check_lzop, check_pv, compressed_pipe)
 
 DEFAULT_CONCURRENCY = max(multiprocessing.cpu_count() - 1, 1)
 BUFFER_SIZE = 64  # Default bufsize is 64M
@@ -29,6 +29,7 @@ MAX_RETRY_COUNT = 4
 SLEEP_TIME = 2
 SLEEP_MULTIPLIER = 3
 UPLOAD_TIMEOUT = 600
+DEFAULT_REDUCED_REDUNDANCY=False
 
 logging_helper.configure(
     format='%(name)-12s %(levelname)-8s %(message)s')
@@ -59,7 +60,7 @@ def s3_progress_update_callback(*args):
 
 
 @map_wrap
-def upload_file(bucket, source, destination, s3_ssenc, bufsize):
+def upload_file(bucket, source, destination, s3_ssenc, bufsize, reduced_redundancy, rate_limit):
     mp = None
     retry_count = 0
     sleep_time = SLEEP_TIME
@@ -68,7 +69,7 @@ def upload_file(bucket, source, destination, s3_ssenc, bufsize):
             if mp is None:
                 # Initiate the multi-part upload.
                 try:
-                    mp = bucket.initiate_multipart_upload(destination, encrypt_key=s3_ssenc)
+                    mp = bucket.initiate_multipart_upload(destination, encrypt_key=s3_ssenc, reduced_redundancy=reduced_redundancy)
                     logger.info("Initialized multipart upload for file {!s} to {!s}".format(source, destination))
                 except Exception as exc:
                     logger.error("Error while initializing multipart upload for file {!s} to {!s}".format(source, destination))
@@ -76,7 +77,7 @@ def upload_file(bucket, source, destination, s3_ssenc, bufsize):
                     raise
 
             try:
-                for i, chunk in enumerate(compressed_pipe(source, bufsize)):
+                for i, chunk in enumerate(compressed_pipe(source, bufsize, rate_limit)):
                     mp.upload_part_from_file(chunk, i + 1, cb=s3_progress_update_callback)
             except Exception as exc:
                 logger.error("Error uploading file {!s} to {!s}".format(source, destination))
@@ -146,7 +147,7 @@ def cancel_upload(bucket, mp, remote_path):
 def put_from_manifest(
         s3_bucket, s3_connection_host, s3_ssenc, s3_base_path,
         aws_access_key_id, aws_secret_access_key, manifest,
-        bufsize, concurrency=None, incremental_backups=False):
+        bufsize, reduced_redundancy, rate_limit, concurrency=None, incremental_backups=False):
     """
     Uploads files listed in a manifest to amazon S3
     to support larger than 5GB files multipart upload is used (chunks of 60MB)
@@ -161,7 +162,7 @@ def put_from_manifest(
     files = manifest_fp.read().splitlines()
     pool = Pool(concurrency)
     for f in pool.imap(upload_file,
-                       ((bucket, f, destination_path(s3_base_path, f), s3_ssenc, buffer_size) for f in files if f)):
+                       ((bucket, f, destination_path(s3_base_path, f), s3_ssenc, buffer_size, reduced_redundancy, rate_limit) for f in files if f)):
         if f is None:
             # Upload failed.
             exit_code = 1
@@ -258,6 +259,20 @@ def main():
         type=int,
         help="Compress and upload concurrent processes")
 
+    put_parser.add_argument(
+        '--reduced-redundancy',
+        required=False,
+        default=DEFAULT_REDUCED_REDUNDANCY,
+        action="store_true",
+        help="Compress and upload concurrent processes")
+
+    put_parser.add_argument(
+        '--rate-limit',
+        required=False,
+        default=0,
+        type=int,
+        help="Limit the upload speed to S3 (by using 'pv'). Value expressed in kilobytes (*1024)")
+
     # create-upload-manifest arguments
     manifest_parser.add_argument('--snapshot_name', required=True, type=str)
     manifest_parser.add_argument('--conf_path', required=True, type=str)
@@ -285,6 +300,10 @@ def main():
 
     if subcommand == 'put':
         check_lzop()
+
+        if args.rate_limit > 0:
+            check_pv()
+
         put_from_manifest(
             args.s3_bucket_name,
             get_s3_connection_host(args.s3_bucket_region),
@@ -294,6 +313,8 @@ def main():
             args.aws_secret_access_key,
             args.manifest,
             args.bufsize,
+            args.reduced_redundancy,
+            args.rate_limit,
             args.concurrency,
             args.incremental_backups
         )
