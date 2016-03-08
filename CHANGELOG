@@ -1,4 +1,4 @@
-1.0.0 (not released yet)
+1.0.0
  * Use cqlsh to backup schema instead of depreciated cassandra-cli
  * AWS IAM role support
  * lzop decompression for the restore command
