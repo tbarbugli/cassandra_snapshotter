@@ -3,6 +3,7 @@ from __future__ import (absolute_import, print_function)
 # From system
 from collections import defaultdict
 from fabric.api import env
+import os.path
 import logging
 
 # From package
@@ -94,8 +95,8 @@ def list_backups(args):
     path_snapshots = defaultdict(list)
 
     for snapshot in snapshots:
-        base_path = '/'.join(snapshot.base_path.split('/')[:-1])
-        path_snapshots[base_path].append(snapshot)
+        dir_path = os.path.dirname(snapshot.base_path)
+        path_snapshots[dir_path].append(snapshot)
 
     for path, snapshots in path_snapshots.iteritems():
         print("-----------[{!s}]-----------".format(path))

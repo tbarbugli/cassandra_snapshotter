@@ -76,7 +76,7 @@ class Snapshot(object):
 
     @property
     def base_path(self):
-        return '/'.join([self._base_path, self.name])
+        return os.path.join(self._base_path, self.name)
 
     def make_snapshot_name(self):
         return datetime.utcnow().strftime(self.SNAPSHOT_TIMESTAMP_FORMAT)
@@ -219,7 +219,7 @@ class RestoreWorker(object):
     def _run_sstableloader(self, keyspace_path, tables, target_hosts, cassandra_bin_dir):
         sstableloader = "{!s}/sstableloader".format(cassandra_bin_dir)
         for table in tables:
-            path = "/".join([keyspace_path, table])
+            path = os.path.join(keyspace_path, table)
             if not os.path.exists(path):
                 os.makedirs(path)
             command = '%(sstableloader)s --nodes %(hosts)s -v \
@@ -280,7 +280,7 @@ class BackupWorker(object):
         return env.host_string
 
     def upload_node_backups(self, snapshot, incremental_backups):
-        prefix = '/'.join(snapshot.base_path.split('/') + [self.get_current_node_hostname()])
+        prefix = os.path.join(snapshot.base_path, self.get_current_node_hostname())
 
         manifest_path = '/tmp/backupmanifest'
         manifest_command = "cassandra-snapshotter-agent " \
@@ -407,7 +407,7 @@ class BackupWorker(object):
     def write_ring_description(self, snapshot):
         logging.info("Writing ring description")
         content = self.get_ring_description()
-        ring_path = '/'.join([snapshot.base_path, 'ring'])
+        ring_path = os.path.join(snapshot.base_path, 'ring')
         self.write_on_S3(snapshot.s3_bucket, ring_path, content)
 
     def write_schema(self, snapshot):
@@ -415,18 +415,18 @@ class BackupWorker(object):
             for ks in snapshot.keyspaces:
                 logging.info("Writing schema for keyspace {!s}".format(ks))
                 content = self.get_keyspace_schema(ks)
-                schema_path = '/'.join(
-                    [snapshot.base_path, "schema_{!s}.cql".format(ks)])
+                schema_path = os.path.join(
+                    snapshot.base_path, "schema_{!s}.cql".format(ks))
                 self.write_on_S3(snapshot.s3_bucket, schema_path, content)
         else:
             logging.info("Writing schema for all keyspaces")
             content = self.get_keyspace_schema()
-            schema_path = '/'.join([snapshot.base_path, "schema.cql"])
+            schema_path = os.path.join(snapshot.base_path, "schema.cql")
             self.write_on_S3(snapshot.s3_bucket, schema_path, content)
 
     def write_snapshot_manifest(self, snapshot):
         content = snapshot.dump_manifest_file()
-        manifest_path = '/'.join([snapshot.base_path, 'manifest.json'])
+        manifest_path = os.path.join(snapshot.base_path, 'manifest.json')
         self.write_on_S3(snapshot.s3_bucket, manifest_path, content)
 
     def start_cluster_backup(self, snapshot, incremental_backups=False):
@@ -539,7 +539,7 @@ class SnapshotCollection(object):
         snap_paths = [x for x in snap_paths if x != prefix]
         for snap_path in snap_paths:
             mkey = Key(bucket)
-            manifest_path = '/'.join([snap_path, 'manifest.json'])
+            manifest_path = os.path.join(snap_path, 'manifest.json')
             mkey.key = manifest_path
             try:
                 manifest_data = mkey.get_contents_as_string()
