@@ -95,7 +95,8 @@ class Snapshot(object):
 
 
 class RestoreWorker(object):
-    def __init__(self, aws_access_key_id, aws_secret_access_key, snapshot, cassandra_bin_dir, cassandra_data_dir):
+    def __init__(self, aws_access_key_id, aws_secret_access_key, snapshot,
+                 cassandra_bin_dir, cassandra_data_dir, no_sstableloader):
         self.aws_secret_access_key = aws_secret_access_key
         self.aws_access_key_id = aws_access_key_id
         self.s3connection = S3Connection(
@@ -105,11 +106,9 @@ class RestoreWorker(object):
         self.keyspace_table_matcher = None
         self.cassandra_bin_dir = cassandra_bin_dir
         self.cassandra_data_dir = cassandra_data_dir
+        self.run_sstableloader = not no_sstableloader
 
     def restore(self, keyspace, table, hosts, target_hosts):
-        # TODO:
-        # 4. sstableloader
-
         logging.info("Restoring keyspace=%(keyspace)s,\
             table=%(table)s" % dict(keyspace=keyspace, table=table))
         logging.info("From hosts: %(hosts)s to: %(target_hosts)s" % dict(
@@ -149,9 +148,10 @@ class RestoreWorker(object):
 
         self._download_keys(keys, total_size)
 
-        logging.info("Finished downloading...")
+        logging.info("Finished downloading.")
 
-        self._run_sstableloader(keyspace_path, tables, target_hosts, self.cassandra_bin_dir)
+        if self.run_sstableloader:
+            self._run_sstableloader(keyspace_path, tables, target_hosts, self.cassandra_bin_dir)
 
     def _delete_old_dir_and_create_new(self, keyspace_path, tables):
 
@@ -218,6 +218,7 @@ class RestoreWorker(object):
         return "{:3.1f}{!s}".format(size, 'TB')
 
     def _run_sstableloader(self, keyspace_path, tables, target_hosts, cassandra_bin_dir):
+        logging.info("Running sstableloader...")
         sstableloader = "{!s}/sstableloader".format(cassandra_bin_dir)
         for table in tables:
             path = os.path.join(keyspace_path, table)
