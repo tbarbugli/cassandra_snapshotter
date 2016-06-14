@@ -198,24 +198,25 @@ class RestoreWorker(object):
         filename = "{!s}/{!s}/{!s}_{!s}".format(keyspace, table, host, file)
         key_full_path = os.path.join(self.cassandra_data_dir, filename)
 
-        if filename.endswith('.lzo'):
-            uncompressed_key_full_path = re.sub('\.lzo$', '', key_full_path)
-            logging.info("Decompressing %s..." % key_full_path)
-            lzop_pipe = decompression_pipe(uncompressed_key_full_path)
-            key.open_read()
-            for chunk in key:
-                lzop_pipe.stdin.write(chunk)
-            key.close()
-            out, err = lzop_pipe.communicate()
-            errcode = lzop_pipe.returncode
-            if errcode != 0:
-                logging.exception("lzop Out: %s\nError:%s\nExit Code %d: " % (out, err, errcode))
-        else:
-            try:
+        try:
+            if filename.endswith('.lzo'):
+                uncompressed_key_full_path = re.sub('\.lzo$', '', key_full_path)
+                logging.info("Decompressing %s..." % key_full_path)
+                lzop_pipe = decompression_pipe(uncompressed_key_full_path)
+                key.open_read()
+                for chunk in key:
+                    lzop_pipe.stdin.write(chunk)
+                key.close()
+                out, err = lzop_pipe.communicate()
+                errcode = lzop_pipe.returncode
+                if errcode != 0:
+                    logging.error("lzop Out: %s\nError:%s\nExit Code %d: " % (out, err, errcode))
+            else:
                 logging.info("Saving %s..." % key_full_path)
                 key.get_contents_to_filename(key_full_path)
-            except Exception as e:
-                logging.error('Unable to create "{!s}": {!s}'.format(key_full_path, e))
+        except Exception as e:
+            logging.error('Unable to create "{!s}": {!s}'.format(
+                key_full_path, e))
 
         return key.size
 
