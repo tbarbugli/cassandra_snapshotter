@@ -120,7 +120,8 @@ class RestoreWorker(object):
         bucket = self.s3connection.get_bucket(
             self.snapshot.s3_bucket, validate=False)
 
-        matcher_string = "(%(hosts)s).*/(%(keyspace)s)/(%(table)s-[A-Za-z0-9]*)/" % dict(
+        # handle v2.0 and v2.1 table directory format
+        matcher_string = "(%(hosts)s).*/(%(keyspace)s)/(%(table)s-?[A-Za-z0-9]*)/" % dict(
             hosts='|'.join(hosts), keyspace=keyspace, table=table)
         self.keyspace_table_matcher = re.compile(matcher_string)
 
