@@ -16,7 +16,7 @@ from datetime import datetime
 from fabric.api import (env, execute, hide, run, sudo)
 from fabric.context_managers import settings
 from multiprocessing.dummy import Pool
-from cassandra_snapshotter.utils import decompression_pipe
+from cassandra_snapshotter.utils import check_lzop, decompression_pipe
 
 
 class Snapshot(object):
@@ -111,6 +111,7 @@ class RestoreWorker(object):
     def restore(self, keyspace, table, hosts, target_hosts):
         logging.info("Restoring keyspace=%(keyspace)s,\
             table=%(table)s" % dict(keyspace=keyspace, table=table))
+        check_lzop()
         logging.info("From hosts: %(hosts)s to: %(target_hosts)s" % dict(
             hosts=', '.join(hosts), target_hosts=', '.join(target_hosts)))
         if not table:
