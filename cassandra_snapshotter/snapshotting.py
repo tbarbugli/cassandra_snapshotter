@@ -162,7 +162,7 @@ class RestoreWorker(object):
             shutil.rmtree(keyspace_path)
 
         for table in tables:
-            path = "./{!s}/{!s}".format(keyspace_path, table)
+            path = "{!s}/{!s}".format(keyspace_path, table)
             if not os.path.exists(path):
                 os.makedirs(path)
 
@@ -191,13 +191,17 @@ class RestoreWorker(object):
 
     def _download_key(self, key):
         r = self.keyspace_table_matcher.search(key.name)
-        filename = "./{!s}/{!s}/{!s}_{!s}".format(
-            r.group(2), r.group(3),
-            key.name.split('/')[2], key.name.split('/')[-1])
+        keyspace = r.group(2)
+        table = r.group(3)
+        host = key.name.split('/')[2]
+        file = key.name.split('/')[-1]
+        filename = "{!s}/{!s}/{!s}_{!s}".format(keyspace, table, host, file)
+        key_full_path = os.path.join(self.cassandra_data_dir, filename)
 
         if filename.endswith('.lzo'):
-            filename = re.sub('\.lzo$', '', filename)
-            lzop_pipe = decompression_pipe(filename)
+            uncompressed_key_full_path = re.sub('\.lzo$', '', key_full_path)
+            logging.info("Decompressing %s..." % key_full_path)
+            lzop_pipe = decompression_pipe(uncompressed_key_full_path)
             key.open_read()
             for chunk in key:
                 lzop_pipe.stdin.write(chunk)
@@ -207,7 +211,11 @@ class RestoreWorker(object):
             if errcode != 0:
                 logging.exception("lzop Out: %s\nError:%s\nExit Code %d: " % (out, err, errcode))
         else:
-            key.get_contents_to_filename(filename)
+            try:
+                logging.info("Saving %s..." % key_full_path)
+                key.get_contents_to_filename(key_full_path)
+            except Exception as e:
+                logging.error('Unable to create "{!s}": {!s}'.format(key_full_path, e))
 
         return key.size
 
