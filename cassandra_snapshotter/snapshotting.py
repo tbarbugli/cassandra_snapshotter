@@ -135,7 +135,7 @@ class RestoreWorker(object):
             tables.add(r.group(3))
             keys.append(k)
 
-        keyspace_path = "/".join([self.cassandra_data_dir, "data", keyspace])
+        keyspace_path = os.path.join(self.cassandra_data_dir, keyspace)
         self._delete_old_dir_and_create_new(keyspace_path, tables)
         total_size = reduce(lambda s, k: s + k.size, keys, 0)
 
