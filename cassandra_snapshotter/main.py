@@ -290,8 +290,8 @@ def main():
     restore_parser.add_argument(
         '--hosts',
         default='',
-        help="Comma separated list of \
-            hosts to restore from; leave empty for all")
+        help="Comma separated list of hosts to restore from; "
+             "leave empty for all. Only one host allowed when using --local.")
 
     restore_parser.add_argument(
         '--cassandra-bin-dir',
