@@ -96,7 +96,8 @@ class Snapshot(object):
 
 class RestoreWorker(object):
     def __init__(self, aws_access_key_id, aws_secret_access_key, snapshot,
-                 cassandra_bin_dir, cassandra_data_dir, no_sstableloader):
+                 cassandra_bin_dir, restore_dir, no_sstableloader,
+                 local_restore):
         self.aws_secret_access_key = aws_secret_access_key
         self.aws_access_key_id = aws_access_key_id
         self.s3connection = S3Connection(
@@ -105,15 +106,31 @@ class RestoreWorker(object):
         self.snapshot = snapshot
         self.keyspace_table_matcher = None
         self.cassandra_bin_dir = cassandra_bin_dir
-        self.cassandra_data_dir = cassandra_data_dir
+        self.restore_dir = restore_dir
         self.run_sstableloader = not no_sstableloader
+        self.local_restore = local_restore
 
     def restore(self, keyspace, table, hosts, target_hosts):
-        logging.info("Restoring keyspace=%(keyspace)s,\
-            table=%(table)s" % dict(keyspace=keyspace, table=table))
+        table_log = "table: %s" % table if table else ''
+        snap_name = os.path.basename(self.snapshot.base_path)
+        logging.info("Restoring keyspace: %(keyspace)s %(table)s "
+                     "from backup %(snap)s" %
+                     dict(keyspace=keyspace, table=table_log, snap=snap_name))
         check_lzop()
-        logging.info("From hosts: %(hosts)s to: %(target_hosts)s" % dict(
-            hosts=', '.join(hosts), target_hosts=', '.join(target_hosts)))
+
+        if self.local_restore:
+            logging.info("Backup files of %(host)s will be downloaded "
+                         "in '%(dir)s'." %
+                         dict(host=hosts[0], dir=self.restore_dir))
+        else:
+            logging.info("Backup files of the following host(s) will be "
+                         "downloaded in '%(dir)s': %(hosts)s." %
+                         dict(dir=self.restore_dir, hosts=', '.join(hosts)))
+
+            if self.run_sstableloader:
+                logging.info("After the downloading data will be streamed "
+                             "to the following host(s) via sstableloader: %s." %
+                             ', '.join(target_hosts))
         if not table:
             table = ".*?"
 
@@ -136,23 +153,22 @@ class RestoreWorker(object):
             tables.add(r.group(3))
             keys.append(k)
 
-        keyspace_path = os.path.join(self.cassandra_data_dir, keyspace)
+        keyspace_path = os.path.join(self.restore_dir, keyspace)
         self._delete_old_dir_and_create_new(keyspace_path, tables)
         total_size = reduce(lambda s, k: s + k.size, keys, 0)
 
-        logging.info("Found %(files_count)d files, with total size \
-            of %(size)s." % dict(files_count=len(keys),
-                                 size=self._human_size(total_size)))
-        print("Found %(files_count)d files, with total size \
-            of %(size)s." % dict(files_count=len(keys),
-                                 size=self._human_size(total_size)))
+        logging.info("Found %(files_count)d files, with total size of %(size)s."
+                     % dict(files_count=len(keys),
+                            size=self._human_size(total_size)))
+        print("Found %(files_count)d files, with total size of %(size)s." %
+              dict(files_count=len(keys), size=self._human_size(total_size)))
 
         self._download_keys(keys, total_size)
 
-        logging.info("Finished downloading.")
-
-        if self.run_sstableloader:
-            self._run_sstableloader(keyspace_path, tables, target_hosts, self.cassandra_bin_dir)
+        if target_hosts and self.run_sstableloader:
+            self._run_sstableloader(keyspace_path, tables, target_hosts,
+                                    self.cassandra_bin_dir)
+        logging.info("Restore completed.")
 
     def _delete_old_dir_and_create_new(self, keyspace_path, tables):
 
@@ -188,6 +204,7 @@ class RestoreWorker(object):
             progress_string = "{!s}{!s}\r".format(progress_string, padding)
 
             sys.stderr.write(progress_string)
+        logging.info("Download finished.")
 
     def _download_key(self, key):
         r = self.keyspace_table_matcher.search(key.name)
@@ -195,8 +212,14 @@ class RestoreWorker(object):
         table = r.group(3)
         host = key.name.split('/')[2]
         file = key.name.split('/')[-1]
-        filename = "{!s}/{!s}/{!s}_{!s}".format(keyspace, table, host, file)
-        key_full_path = os.path.join(self.cassandra_data_dir, filename)
+        prefix = '%s_' % host
+
+        # We don't want any host prefix because we restore from only one host
+        if self.local_restore:
+            prefix = ''
+
+        filename = "{}/{}/{}{}".format(keyspace, table, prefix, file)
+        key_full_path = os.path.join(self.restore_dir, filename)
 
         try:
             if filename.endswith('.lzo'):
@@ -212,7 +235,7 @@ class RestoreWorker(object):
                 if errcode != 0:
                     logging.error("lzop Out: %s\nError:%s\nExit Code %d: " % (out, err, errcode))
             else:
-                logging.info("Saving %s..." % key_full_path)
+                logging.info("Downloading %s..." % key_full_path)
                 key.get_contents_to_filename(key_full_path)
         except Exception as e:
             logging.error('Unable to create "{!s}": {!s}'.format(

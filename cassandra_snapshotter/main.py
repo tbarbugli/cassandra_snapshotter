@@ -5,6 +5,7 @@ from collections import defaultdict
 from fabric.api import env
 import os.path
 import logging
+import sys
 
 # From package
 from .snapshotting import (BackupWorker, RestoreWorker,
@@ -112,9 +113,8 @@ def restore_backup(args):
         args.aws_secret_access_key,
         args.s3_base_path,
         args.s3_bucket_name,
-        get_s3_connection_host(args.s3_bucket_region)
+        get_s3_connection_host(args.s3_bucket_region),
     )
-
     if args.snapshot_name == 'LATEST':
         snapshot = snapshots.get_latest()
     else:
@@ -124,15 +124,31 @@ def restore_backup(args):
                            aws_secret_access_key=args.aws_secret_access_key,
                            snapshot=snapshot,
                            cassandra_bin_dir=args.cassandra_bin_dir,
-                           cassandra_data_dir=args.cassandra_data_dir,
-                           no_sstableloader=args.no_sstableloader)
+                           restore_dir=args.restore_dir,
+                           no_sstableloader=args.no_sstableloader,
+                           local_restore=args.local_restore)
 
     if args.hosts:
         hosts = args.hosts.split(',')
+
+        if args.local_restore and len(hosts) > 1:
+            logging.error(
+                "You must provide only one source host when using --local.")
+            sys.exit(1)
     else:
         hosts = snapshot.hosts
 
-    target_hosts = args.target_hosts.split(',')
+        if args.local_restore:
+            logging.error(
+                "You must provide one source host when using --local.")
+            sys.exit(1)
+
+    # --target_hosts is mutually exclusive with --local and --nosstableloader
+    if args.target_hosts:
+        target_hosts = args.target_hosts.split(',')
+    else:
+        # --local or --nosstableloader: no streaming will occur
+        target_hosts = None
 
     worker.restore(args.keyspace, args.table, hosts, target_hosts)
 
@@ -278,30 +294,41 @@ def main():
             hosts to restore from; leave empty for all")
 
     restore_parser.add_argument(
-        '--target-hosts',
-        required=True,
-        help="The comma separated list of hosts to restore into")
-
-    restore_parser.add_argument(
         '--cassandra-bin-dir',
         default='/usr/bin',
         help="cassandra binaries directory")
 
     restore_parser.add_argument(
-        '--cassandra-data-dir',
-        default='/usr/local/cassandra/data',
-        help="cassandra data directory")
+        '--restore-dir',
+        default='/tmp/restore_cassandra/',
+        help="Directory where data will be downloaded. If --target-hosts is "
+             "passed, sstableloader will stream data from this directory.")
 
-    restore_parser.add_argument(
+    restore_type = restore_parser.add_mutually_exclusive_group(required=True)
+
+    restore_type.add_argument(
+        '--target-hosts',
+        help='The comma separated list of hosts to restore into')
+
+    restore_type.add_argument(
+        '--local',
+        action='store_true',
+        dest='local_restore',
+        help='Do not run sstableloader when restoring. If set, files will '
+             'just be downloaded and decompressed in --restore-dir.')
+
+    restore_type.add_argument(
         '--no-sstableloader',
         action='store_true',
-        help="Do not run sstableloader when restoring. If set, files will just be downloaded.")
+        help="Do not run sstableloader when restoring. "
+             "If set, files will just be downloaded. Use it if you want to do "
+             "some checks and then run sstableloader manually.")
 
     args = base_parser.parse_args()
     subcommand = args.subcommand
 
     if args.verbose:
-        logging.basicConfig(level=logging.INFO)
+        logging.basicConfig(level=logging.INFO, format='%(message)s')
 
     if subcommand == 'backup':
         run_backup(args)
