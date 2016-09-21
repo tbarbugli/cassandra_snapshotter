@@ -301,8 +301,10 @@ def main():
     restore_parser.add_argument(
         '--restore-dir',
         default='/tmp/restore_cassandra/',
-        help="Directory where data will be downloaded. If --target-hosts is "
-             "passed, sstableloader will stream data from this directory.")
+        help="Directory where data will be downloaded. "
+             "Existing data in this directory will be *ERASED*. "
+             "If --target-hosts is passed, sstableloader will stream data "
+             "from this directory.")
 
     restore_type = restore_parser.add_mutually_exclusive_group(required=True)
 
