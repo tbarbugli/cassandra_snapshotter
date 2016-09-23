@@ -76,18 +76,20 @@ def map_wrap(f):
     return wrapper
 
 
-def check_lzop():
+def _check_bin(bin_name):
     try:
-        subprocess.call([LZOP_BIN, '--version'])
-    except OSError:
-        sys.exit("{!s} not found on path".format(LZOP_BIN))
+        subprocess.check_call("{} --version > /dev/null 2>&1".format(bin_name),
+                              shell=True)
+    except subprocess.CalledProcessError:
+        sys.exit("{} not found on path".format(bin_name))
+
+
+def check_lzop():
+    _check_bin(LZOP_BIN)
 
 
 def check_pv():
-    try:
-        subprocess.call([PV_BIN, '--version'])
-    except OSError:
-        sys.exit("{!s} not found on path".format(PV_BIN))
+    _check_bin(PV_BIN)
 
 
 def compressed_pipe(path, size, rate_limit):
