@@ -92,7 +92,7 @@ def check_pv():
     _check_bin(PV_BIN)
 
 
-def compressed_pipe(path, size, rate_limit):
+def compressed_pipe(path, size, rate_limit, quiet):
     """
     Returns a generator that yields compressed chunks of
     the given file_path
@@ -107,8 +107,13 @@ def compressed_pipe(path, size, rate_limit):
     )
 
     if rate_limit > 0:
+        pv_cmd = [PV_BIN, '--rate-limit', '{}k'.format(rate_limit)]
+
+        if quiet:
+            pv_cmd.insert(1, '--quiet')
+
         pv = subprocess.Popen(
-            (PV_BIN, '--rate-limit', str(rate_limit) + 'k'),
+            pv_cmd,
             stdin=lzop.stdout,
             stdout=subprocess.PIPE
         )
