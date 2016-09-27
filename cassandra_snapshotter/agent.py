@@ -60,7 +60,7 @@ def s3_progress_update_callback(*args):
 
 
 @map_wrap
-def upload_file(bucket, source, destination, s3_ssenc, bufsize, reduced_redundancy, rate_limit):
+def upload_file(bucket, source, destination, s3_ssenc, bufsize, reduced_redundancy, rate_limit, quiet):
     mp = None
     retry_count = 0
     sleep_time = SLEEP_TIME
@@ -77,7 +77,7 @@ def upload_file(bucket, source, destination, s3_ssenc, bufsize, reduced_redundan
                     raise
 
             try:
-                for i, chunk in enumerate(compressed_pipe(source, bufsize, rate_limit)):
+                for i, chunk in enumerate(compressed_pipe(source, bufsize, rate_limit, quiet)):
                     mp.upload_part_from_file(chunk, i + 1, cb=s3_progress_update_callback)
             except Exception as exc:
                 logger.error("Error uploading file {!s} to {!s}".format(source, destination))
@@ -147,7 +147,8 @@ def cancel_upload(bucket, mp, remote_path):
 def put_from_manifest(
         s3_bucket, s3_connection_host, s3_ssenc, s3_base_path,
         aws_access_key_id, aws_secret_access_key, manifest,
-        bufsize, reduced_redundancy, rate_limit, concurrency=None, incremental_backups=False):
+        bufsize, reduced_redundancy, rate_limit, quiet,
+        concurrency=None, incremental_backups=False):
     """
     Uploads files listed in a manifest to amazon S3
     to support larger than 5GB files multipart upload is used (chunks of 60MB)
@@ -162,7 +163,8 @@ def put_from_manifest(
     files = manifest_fp.read().splitlines()
     pool = Pool(concurrency)
     for f in pool.imap(upload_file,
-                       ((bucket, f, destination_path(s3_base_path, f), s3_ssenc, buffer_size, reduced_redundancy, rate_limit) for f in files if f)):
+                       ((bucket, f, destination_path(s3_base_path, f), s3_ssenc, buffer_size, reduced_redundancy, rate_limit, quiet)
+                        for f in files if f)):
         if f is None:
             # Upload failed.
             exit_code = 1
@@ -273,6 +275,11 @@ def main():
         type=int,
         help="Limit the upload speed to S3 (by using 'pv'). Value expressed in kilobytes (*1024)")
 
+    put_parser.add_argument(
+        '--quiet',
+        action='store_true',
+        help="pv quiet mode, useful when called by a script.")
+
     # create-upload-manifest arguments
     manifest_parser.add_argument('--snapshot_name', required=True, type=str)
     manifest_parser.add_argument('--conf_path', required=True, type=str)
@@ -315,6 +322,7 @@ def main():
             args.bufsize,
             args.reduced_redundancy,
             args.rate_limit,
+            args.quiet,
             args.concurrency,
             args.incremental_backups
         )

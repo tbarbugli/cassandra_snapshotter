@@ -61,7 +61,8 @@ def run_backup(args):
         connection_pool_size=args.connection_pool_size,
         exclude_tables=args.exclude_tables,
         reduced_redundancy=args.reduced_redundancy,
-        rate_limit=args.rate_limit
+        rate_limit=args.rate_limit,
+        quiet=args.quiet
     )
 
     if create_snapshot:
@@ -229,6 +230,12 @@ def main():
         '--rate-limit',
         default=0,
         help="Limit the upload speed to S3 (by using 'pv'). Value expressed in kilobytes (*1024)")
+
+    backup_parser.add_argument(
+        '--quiet',
+        action='store_true',
+        help="Set pv in quiet mode when using --rate-limit. "
+             "Useful when called by a script.")
 
     # restore snapshot arguments
     restore_parser = subparsers.add_parser(

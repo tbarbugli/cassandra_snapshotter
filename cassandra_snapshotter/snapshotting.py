@@ -252,8 +252,8 @@ class BackupWorker(object):
                  aws_access_key_id, s3_bucket_region, s3_ssenc,
                  s3_connection_host, cassandra_conf_path, use_sudo,
                  nodetool_path, cassandra_bin_dir, backup_schema,
-                 buffer_size, exclude_tables, rate_limit, connection_pool_size=12,
-                 reduced_redundancy=False):
+                 buffer_size, exclude_tables, rate_limit, quiet,
+                 connection_pool_size=12, reduced_redundancy=False):
         self.aws_secret_access_key = aws_secret_access_key
         self.aws_access_key_id = aws_access_key_id
         self.s3_bucket_region = s3_bucket_region
@@ -267,6 +267,7 @@ class BackupWorker(object):
         self.buffer_size = buffer_size
         self.reduced_redundancy = reduced_redundancy
         self.rate_limit = rate_limit
+        self.quiet = quiet
         if isinstance(use_sudo, basestring):
             self.use_sudo = bool(strtobool(use_sudo))
         else:
@@ -316,6 +317,9 @@ class BackupWorker(object):
 
         if self.rate_limit > 0:
             upload_command += " --rate-limit=%(rate_limit)s"
+
+        if self.quiet:
+            upload_command += " --quiet"
 
         if self.aws_access_key_id and self.aws_secret_access_key:
             upload_command += " --aws-access-key-id=%(key)s " \
