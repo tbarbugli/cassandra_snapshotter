@@ -384,11 +384,11 @@ class BackupWorker(object):
             auth = ""
         with settings(host_string=env.hosts[0]):
             with hide('output'):
-                cmd = "echo 'DESCRIBE SCHEMA;' | {!s} {!s}".format(
+                cmd = "{!s} {!s} -e 'DESCRIBE SCHEMA;'".format(
                     self.cqlsh_path, auth)
                 if keyspace:
-                    cmd = "echo 'DESCRIBE KEYSPACE {!s};' | {!s} -k {!s}  {!s}".format(
-                        keyspace, self.cqlsh_path, keyspace, auth)
+                    cmd = "{!s} -k {!s} {!s} -e 'DESCRIBE KEYSPACE {!s};'".format(
+                        self.cqlsh_path, keyspace, auth, keyspace)
                 if self.use_sudo:
                     output = sudo(cmd)
                 else:
