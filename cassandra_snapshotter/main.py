@@ -55,6 +55,8 @@ def run_backup(args):
         cassandra_conf_path=args.cassandra_conf_path,
         nodetool_path=args.nodetool_path,
         cassandra_bin_dir=args.cassandra_bin_dir,
+        cqlsh_user=args.cqlsh_user,
+        cqlsh_password=args.cqlsh_password,
         backup_schema=args.backup_schema,
         buffer_size=args.buffer_size,
         use_sudo=args.use_sudo,
@@ -215,6 +217,16 @@ def main():
         '--backup-schema',
         action='store_true',
         help="Backup (thrift) schema of selected keyspaces")
+
+    backup_parser.add_argument(
+        '--cqlsh-user',
+        default='',
+        help="User to use for cqlsh commands")
+
+    backup_parser.add_argument(
+        '--cqlsh-password',
+        default='',
+        help="Password to use for cqlsh commands")
 
     backup_parser.add_argument(
         '--connection-pool-size',
