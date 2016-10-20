@@ -251,8 +251,8 @@ class BackupWorker(object):
     def __init__(self, aws_secret_access_key,
                  aws_access_key_id, s3_bucket_region, s3_ssenc,
                  s3_connection_host, cassandra_conf_path, use_sudo,
-                 nodetool_path, cassandra_bin_dir, backup_schema,
-                 buffer_size, exclude_tables, rate_limit, quiet,
+                 nodetool_path, cassandra_bin_dir, cqlsh_user, cqlsh_password,
+                 backup_schema, buffer_size, exclude_tables, rate_limit, quiet,
                  connection_pool_size=12, reduced_redundancy=False):
         self.aws_secret_access_key = aws_secret_access_key
         self.aws_access_key_id = aws_access_key_id
@@ -262,6 +262,8 @@ class BackupWorker(object):
         self.cassandra_conf_path = cassandra_conf_path
         self.nodetool_path = nodetool_path or "{!s}/nodetool".format(cassandra_bin_dir)
         self.cqlsh_path = "{!s}/cqlsh".format(cassandra_bin_dir)
+        self.cqlsh_user = cqlsh_user
+        self.cqlsh_password = cqlsh_password
         self.backup_schema = backup_schema
         self.connection_pool_size = connection_pool_size
         self.buffer_size = buffer_size
@@ -376,12 +378,17 @@ class BackupWorker(object):
         return ring_description
 
     def get_keyspace_schema(self, keyspace=None):
+        if self.cqlsh_user and self.cqlsh_password:
+            auth = "-u {!s} -p {!s}".format(self.cqlsh_user, self.cqlsh_password)
+        else:
+            auth = ""
         with settings(host_string=env.hosts[0]):
             with hide('output'):
-                cmd = "echo 'DESCRIBE SCHEMA;' | {!s}".format(self.cqlsh_path)
+                cmd = "{!s} {!s} -e 'DESCRIBE SCHEMA;'".format(
+                    self.cqlsh_path, auth)
                 if keyspace:
-                    cmd = "echo 'DESCRIBE KEYSPACE {!s};' | {!s} -k {!s}".format(
-                        keyspace, self.cqlsh_path, keyspace)
+                    cmd = "{!s} -k {!s} {!s} -e 'DESCRIBE KEYSPACE {!s};'".format(
+                        self.cqlsh_path, keyspace, auth, keyspace)
                 if self.use_sudo:
                     output = sudo(cmd)
                 else:
