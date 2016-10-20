@@ -1,5 +1,6 @@
 UPCOMING
  * add support for cn-north-1 region
+ * add support for password authentication 
 
 1.0.0
  * Use cqlsh to backup schema instead of depreciated cassandra-cli
