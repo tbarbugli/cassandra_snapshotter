@@ -51,7 +51,7 @@ cassandra-snapshotter --s3-bucket-name=Z \
 - connects via ssh to hosts h1,h2,h3,h4 using user cassandra
 - backups up (using snapshots or incremental backups) on the S3 bucket Z
 - backups are stored in /mycluster/
-- if your bucket is in other then us-west-1 region, you should really specify the region in the command line; otherwise weird 'connection reset by peer' errors can appear as you'll be transferring files through us-west-1 over to eg. eu-west-1
+- if your bucket is not on us-east-1 region (the default region), you should really specify the region in the command line; otherwise weird 'connection reset by peer' errors can appear as you'll be transferring files amongst regions
 - ```--aws-access-key-id``` and ```--aws-secret-access-key``` are optional. Omitting them will use the instance IAM profile. See http://docs.pythonboto.org/en/latest/boto_config_tut.html for more details.
 - if you wish to use AWS S3 server-side encryption specify ```--s3-ssenc```
 
