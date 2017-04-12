@@ -27,12 +27,13 @@ apt-get install lzop
 
 Make sure you have JNA enabled and (if you want to use them) that incremental backups are enabled in your cassandra config file.
 
+
 Usage
 -----
 
 You can see the list of parameters available via `cassandra-snapshotter --help`
 
-####Create a new backup for *mycluster*:####
+#### Create a new backup for *mycluster*:####
 
 
 ``` bash
@@ -55,7 +56,8 @@ cassandra-snapshotter --s3-bucket-name=Z \
 - ```--aws-access-key-id``` and ```--aws-secret-access-key``` are optional. Omitting them will use the instance IAM profile. See http://docs.pythonboto.org/en/latest/boto_config_tut.html for more details.
 - if you wish to use AWS S3 server-side encryption specify ```--s3-ssenc```
 
-####List existing backups for *mycluster*:####
+
+#### List existing backups for *mycluster*:
 
 ``` bash
 cassandra-snapshotter --s3-bucket-name=Z \
@@ -67,29 +69,33 @@ cassandra-snapshotter --s3-bucket-name=Z \
                       list
 ```
 
-###How it works###
+
+### How it works
 
 cassandra_snapshotter connects to your cassandra nodes using ssh and uses nodetool to generate
 the backups for keyspaces / table you want to backup.
 
 Backups are stored on S3 using this convention:
 
-####Snapshots:####
+
+#### Snapshots:
 
 	/s3_base_path/snapshot_creation_time/hostname/cassandra/data/path/keyspace/table/snapshots
 
-####Incremental Backups:####
+
+#### Incremental Backups:
 
 	/s3_base_path/snapshot_creation_time/hostname/cassandra/data/path/keyspace/table/backups
 
-###S3_BASE_PATH###
+
+### S3_BASE_PATH
 
 This parameter is used to make it possible to use for a single S3 bucket to store multiple cassandra backups.
 
 This parameter can be also seen as a backup profile identifier; the snapshotter uses the s3_base_path to search for existing snapshots on your S3 bucket.
 
 
-###INCREMENTAL BACKUPS###
+### INCREMENTAL BACKUPS
 
 Incremental backups are created only when a snapshot already exists, incremental backups are stored in their parent snapshot path.
 
@@ -106,22 +112,23 @@ In order to take advantage of incremental backups you need to configure your cas
 __NOTE:__ Incremental backups are not enabled by default on cassandra.
 
 
-###CREATE NEW SNAPSHOT###
+### CREATE NEW SNAPSHOT
 
 If you dont want to use incremental backups, or if for some reason you want to create a new snapshot for your data, run the cassandra_snapshotter with the `--new-snapshot` argument.
 
-###Data retention / Cleanup old snapshots###
 
-Its not in the scope of this project to clean up your S3 buckets.   
+### Data retention / Cleanup old snapshots
+
+Its not in the scope of this project to clean up your S3 buckets.
 S3 Lifecycle rules allows you do drop or archive to Glacier object stored based on their age.
 
-###Restore your data###
+
+### Restore your data
+
 cassandra_snaphotter tries to store data and metadata in a way to make restores less painful; There is not (yet) a feature complete restore command; every patch / pull request about this is more than welcome (hint hint).
 
 In case you need, cassandra_snapshotter stores the ring token description every time a backup is done ( you can find it the ring file in the snapshot base path )
 
 The way data is stored on S3 should makes it really easy to use the Node Restart Method (https://docs.datastax.com/en/cassandra/2.1/cassandra/operations/ops_backup_snapshot_restore_t.html#task_ds_vf4_z1r_gk)
 
-
 [![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/tbarbugli/cassandra_snapshotter/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
-
