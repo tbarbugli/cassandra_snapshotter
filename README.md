@@ -6,7 +6,7 @@ A tool to backup cassandra nodes using snapshots and incremental backups on S3
 The scope of this project is to make it easier to backup a cluster to S3 and to combine
 snapshots and incremental backups.
 
-[![Build Status](https://travis-ci.org/tbarbugli/cassandra_snapshotter.svg?branch=master)](https://travis-ci.org/tbarbugli/cassandra_snapshotter) [![PyPI version](https://badge.fury.io/py/cassandra-snapshotter.svg)](http://badge.fury.io/py/cassandra-snapshotter)
+[![Build Status](https://travis-ci.org/tbarbugli/cassandra_snapshotter.svg?branch=master)](https://travis-ci.org/tbarbugli/cassandra_snapshotter) 
 
 How to install
 --------------
@@ -131,4 +131,3 @@ In case you need, cassandra_snapshotter stores the ring token description every 
 
 The way data is stored on S3 should makes it really easy to use the Node Restart Method (https://docs.datastax.com/en/cassandra/2.1/cassandra/operations/ops_backup_snapshot_restore_t.html#task_ds_vf4_z1r_gk)
 
-[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/tbarbugli/cassandra_snapshotter/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
