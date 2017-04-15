@@ -33,7 +33,7 @@ Usage
 
 You can see the list of parameters available via `cassandra-snapshotter --help`
 
-#### Create a new backup for *mycluster*:####
+#### Create a new backup for *mycluster*:
 
 
 ``` bash
