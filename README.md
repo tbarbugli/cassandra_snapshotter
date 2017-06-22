@@ -6,7 +6,7 @@ A tool to backup cassandra nodes using snapshots and incremental backups on S3
 The scope of this project is to make it easier to backup a cluster to S3 and to combine
 snapshots and incremental backups.
 
-[![Build Status](https://travis-ci.org/tbarbugli/cassandra_snapshotter.svg?branch=master)](https://travis-ci.org/tbarbugli/cassandra_snapshotter) [![PyPI version](https://badge.fury.io/py/cassandra-snapshotter.svg)](http://badge.fury.io/py/cassandra-snapshotter)
+[![Build Status](https://travis-ci.org/tbarbugli/cassandra_snapshotter.svg?branch=master)](https://travis-ci.org/tbarbugli/cassandra_snapshotter) 
 
 How to install
 --------------
@@ -27,6 +27,7 @@ apt-get install lzop
 
 Make sure you have JNA enabled and (if you want to use them) that incremental backups are enabled in your cassandra config file.
 
+
 Usage
 -----
 
@@ -34,7 +35,7 @@ You can see the list of parameters available via `cassandra-snapshotter --help`
 
 If you want to make `cassandra-snapshotter` more chatty just add `--verbose`.
 
-####Create a new backup for *mycluster*:####
+#### Create a new backup for *mycluster*:
 
 
 ``` bash
@@ -58,7 +59,8 @@ cassandra-snapshotter --s3-bucket-name=Z \
 - ```--aws-access-key-id``` and ```--aws-secret-access-key``` are optional. Omitting them will use the instance IAM profile. See http://docs.pythonboto.org/en/latest/boto_config_tut.html for more details.
 - if you wish to use AWS S3 server-side encryption specify ```--s3-ssenc```
 
-####List existing backups for *mycluster*:####
+
+#### List existing backups for *mycluster*:
 
 ``` bash
 cassandra-snapshotter --s3-bucket-name=Z \
@@ -70,29 +72,33 @@ cassandra-snapshotter --s3-bucket-name=Z \
                       list
 ```
 
-###How it works###
+
+### How it works
 
 cassandra_snapshotter connects to your cassandra nodes using ssh and uses nodetool to generate
 the backups for keyspaces / table you want to backup.
 
 Backups are stored on S3 using this convention:
 
-####Snapshots:####
+
+#### Snapshots:
 
 	/s3_base_path/snapshot_creation_time/hostname/cassandra/data/path/keyspace/table/snapshots
 
-####Incremental Backups:####
+
+#### Incremental Backups:
 
 	/s3_base_path/snapshot_creation_time/hostname/cassandra/data/path/keyspace/table/backups
 
-###S3_BASE_PATH###
+
+### S3_BASE_PATH
 
 This parameter is used to make it possible to use for a single S3 bucket to store multiple cassandra backups.
 
 This parameter can be also seen as a backup profile identifier; the snapshotter uses the s3_base_path to search for existing snapshots on your S3 bucket.
 
 
-###INCREMENTAL BACKUPS###
+### INCREMENTAL BACKUPS
 
 Incremental backups are created only when a snapshot already exists, incremental backups are stored in their parent snapshot path.
 
@@ -109,22 +115,23 @@ In order to take advantage of incremental backups you need to configure your cas
 __NOTE:__ Incremental backups are not enabled by default on cassandra.
 
 
-###CREATE NEW SNAPSHOT###
+### CREATE NEW SNAPSHOT
 
 If you dont want to use incremental backups, or if for some reason you want to create a new snapshot for your data, run the cassandra_snapshotter with the `--new-snapshot` argument.
 
-###Data retention / Cleanup old snapshots###
 
-Its not in the scope of this project to clean up your S3 buckets.   
+### Data retention / Cleanup old snapshots
+
+Its not in the scope of this project to clean up your S3 buckets.
 S3 Lifecycle rules allows you do drop or archive to Glacier object stored based on their age.
 
-###Restore your data###
+### Restore your data
 
 There are two types of restore:
  * using `sstableloader` (manual or automatic)
  * local restore: download data on the local server
 
-####sstableloader (automatic)####
+#### sstableloader (automatic)
 
 Mandatory parameters:
 
@@ -156,7 +163,7 @@ cassandra-snapshotter --s3-bucket-name=Z \
 
 Make sure there is enough free disk space on the `--restore-dir` filesystem.
 
-####sstableloader (manual)####
+#### sstableloader (manual)
 
 If you want to restore files without loading them via `sstableloader` automatically, you can use the `--no-sstableloader` option.
 Data will just be downloaded. Use it if you want to do some checks and then run sstableloader manually.
@@ -175,7 +182,7 @@ Example:
 
 Again, make sure there is enough free disk space on the `--restore-dir` filesystem.
 
-####Local restore####
+#### Local restore
 
 If you have lots of data you probably don't want to download data on a server and then stream these data with `sstableloader` on another one server.
 The `--local` option allows you to restore data directly on the local server where the command is run. Note this procedure allows to restore only one host,
@@ -228,7 +235,7 @@ Here are the DataStax procedures to follow when using a local restore:
  * Cassandra v2.2: http://docs.datastax.com/en/cassandra/2.2/cassandra/operations/opsBackupSnapshotRestore.html
  * Cassandra v3.x: http://docs.datastax.com/en/cassandra/3.x/cassandra/operations/opsBackupSnapshotRestore.html
 
-###Ring information###
+### Ring information
 
 In case you need, cassandra_snapshotter stores the ring token description every time a backup is done.
 
