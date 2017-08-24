@@ -7,5 +7,7 @@ notifications:
 install:
   - pip install pep8
   - python setup.py install
+env:
+  - BOTO_CONFIG=/tmp/nowhere
 script:
   - "pep8 --ignore=E501,E225,W293,E731 cassandra_snapshotter"
