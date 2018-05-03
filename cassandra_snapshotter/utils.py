@@ -13,6 +13,7 @@ PV_BIN = 'pv'
 
 S3_CONNECTION_HOSTS = {
     'us-east-1': 's3.amazonaws.com',
+    'us-east-2': 's3-us-east-2.amazonaws.com',
     'us-west-2': 's3-us-west-2.amazonaws.com',
     'us-west-1': 's3-us-west-1.amazonaws.com',
     'eu-central-1': 's3-eu-central-1.amazonaws.com',
