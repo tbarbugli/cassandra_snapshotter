@@ -1,6 +1,8 @@
-UPCOMING
+1.0.1
  * add support for cn-north-1 region
  * add support for password authentication 
+ * fix Fabric dependency to fabric==1.13.1
+ * add support for us-east-2 region
 
 1.0.0
  * Use cqlsh to backup schema instead of depreciated cassandra-cli
