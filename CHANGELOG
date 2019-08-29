@@ -1,3 +1,6 @@
+1.2.0
+ * support restore
+
 1.0.1
  * add support for cn-north-1 region
  * add support for password authentication 
