@@ -33,6 +33,8 @@ Usage
 
 You can see the list of parameters available via `cassandra-snapshotter --help`
 
+If you want to make `cassandra-snapshotter` more chatty just add `--verbose`.
+
 #### Create a new backup for *mycluster*:
 
 
@@ -43,6 +45,7 @@ cassandra-snapshotter --s3-bucket-name=Z \
                       --aws-access-key-id=X \ # optional
                       --aws-secret-access-key=Y \ # optional
                       --s3-ssenc \ # optional
+                      --verbose \ # optional
                       backup \
                       --hosts=h1,h2,h3,h4 \
                       --user=cassandra # optional
@@ -122,12 +125,124 @@ If you dont want to use incremental backups, or if for some reason you want to c
 Its not in the scope of this project to clean up your S3 buckets.
 S3 Lifecycle rules allows you do drop or archive to Glacier object stored based on their age.
 
-
 ### Restore your data
 
-cassandra_snaphotter tries to store data and metadata in a way to make restores less painful; There is not (yet) a feature complete restore command; every patch / pull request about this is more than welcome (hint hint).
+There are two types of restore:
+ * using `sstableloader` (manual or automatic)
+ * local restore: download data on the local server
 
-In case you need, cassandra_snapshotter stores the ring token description every time a backup is done ( you can find it the ring file in the snapshot base path )
+#### sstableloader (automatic)
 
-The way data is stored on S3 should makes it really easy to use the Node Restart Method (https://docs.datastax.com/en/cassandra/2.1/cassandra/operations/ops_backup_snapshot_restore_t.html#task_ds_vf4_z1r_gk)
+Mandatory parameters:
 
+ * `--target-hosts TARGET_HOSTS`: the comma separated list of hosts to restore into. These hosts will received data from sstableloader.
+ * `--keyspace KEYSPACE`: the keyspace to restore.
+
+Optional parameters:
+
+ * `--hosts`: comma separated list of hosts to restore from; leave empty for all
+ * `--table TABLE`: the table (column family) to restore; leave blank for all
+ * `--restore-dir`: where to download files from S3 before to stream them. Default: `/tmp/restore_cassandra/`
+ * `--snapshot-name SNAPSHOT_NAME`: the name of the snapshot to restore
+
+Example to restore `Keyspace1` on `10.0.100.77` with data fetched from a two nodes backup:
+
+``` bash
+cassandra-snapshotter --s3-bucket-name=Z \
+                      --s3-bucket-region=eu-west-1 \
+                      --s3-base-path=mycluster \
+                      --aws-access-key-id=X \ # optional
+                      --aws-secret-access-key=Y \ # optional
+                      restore \
+                      --hosts=10.0.2.68,10.0.2.67 \ # optional
+                      --target-hosts=10.0.100.77 \ # where to restore data
+                      --keyspace Keyspace1 \
+                      --snapshot-name 20160614202644 \ # optional
+                      --restore-dir /tmp/cassandra_restore/ # optional
+```
+
+Make sure there is enough free disk space on the `--restore-dir` filesystem.
+
+#### sstableloader (manual)
+
+If you want to restore files without loading them via `sstableloader` automatically, you can use the `--no-sstableloader` option.
+Data will just be downloaded. Use it if you want to do some checks and then run sstableloader manually.
+
+The files are saved following this format:
+
+``` bash
+<--restore-dir>/<--keyspace>/<--table>/<HOST>_<filename>
+```
+
+Example:
+
+``` bash
+/tmp/cassandra_restore/Keyspace1/Standard1/10.0.53.68_Keyspace1-Standard1-jb-1-Data.db
+```
+
+Again, make sure there is enough free disk space on the `--restore-dir` filesystem.
+
+#### Local restore
+
+If you have lots of data you probably don't want to download data on a server and then stream these data with `sstableloader` on another one server.
+The `--local` option allows you to restore data directly on the local server where the command is run. Note this procedure allows to restore only one host,
+so if you want to restore several nodes you have a to run this command on each server.
+
+On production, do not restore directly on the C* data directory (e.g. --restore-dir /var/lib/cassandra/data/ ) it's safer to restore on a different location.
+Then make some checks (Number of files seems good? The total size seems correct? Files are uncompressed? What about file permissions?) and if all is OK just `mv` the data.
+To make the `mv` command fast, just download data on the same filesystem.
+Also prior to run the command ensure that the filesystem can host the data (enough free disk space).
+
+Example:
+
+Let's say we have a filesystem mounted on `/cassandra`.
+We want to download files on `/cassandra/restore/` (no need to create the `restore` directory, `cassandra_snapshotter` will create it).
+
+The following command will restore from `10.0.2.68` on the local server into `/cassandra/restore/`:
+
+``` bash
+cassandra-snapshotter --s3-bucket-name=Z \
+                      --s3-bucket-region=eu-west-1 \
+                      --s3-base-path=mycluster \
+                      --aws-access-key-id=X \ # optional
+                      --aws-secret-access-key=Y \ # optional
+                      --verbose \
+                      restore \
+                      --hosts=10.0.2.68 \ # select the source host. Only one node is allowed in local restore.
+                      --snapshot-name 20160614202644 \ # optional
+                      --restore-dir /cassandra/restore/ \ #
+                      --keyspace Keyspace1 \
+                      --local
+```
+
+The files are saved following this format:
+
+``` bash
+<--restore-dir>/<--keyspace>/<--table>/<filename>
+```
+
+Note the filenames are *not* prefixed by `<HOST>_` because we restore from only one node in this mode, so it would be useless.
+
+Example:
+
+``` bash
+/tmp/cassandra_restore/Keyspace1/Standard1/Keyspace1-Standard1-jb-1-Data.db
+```
+
+Here are the DataStax procedures to follow when using a local restore:
+ * Cassandra v2.0: https://docs.datastax.com/en/cassandra/2.0/cassandra/operations/ops_backup_snapshot_restore_t.html
+ * Cassandra v2.1: https://docs.datastax.com/en/cassandra/2.1/cassandra/operations/ops_backup_snapshot_restore_t.html
+ * Cassandra v2.2: http://docs.datastax.com/en/cassandra/2.2/cassandra/operations/opsBackupSnapshotRestore.html
+ * Cassandra v3.x: http://docs.datastax.com/en/cassandra/3.x/cassandra/operations/opsBackupSnapshotRestore.html
+
+### Ring information
+
+In case you need, cassandra_snapshotter stores the ring token description every time a backup is done.
+
+You can find it in the `ring` file in the snapshot base path, for instance:
+
+```
+/test-cassandra-snapshots/cassandrasnapshots/20160614202644/ring
+```
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/tbarbugli/cassandra_snapshotter/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
